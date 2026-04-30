@@ -48,6 +48,7 @@
     .accordion-content > .card:last-child { margin-bottom:0; }
     .accordion-content .card { border-radius:16px; }
     canvas { width:100%!important; height:300px!important; }
+    .table-scroll { overflow-x:auto; }
     table { width:100%; border-collapse:collapse; font-size:14px; }
     th,td { padding:12px; border-bottom:1px solid #e5e7eb; text-align:left; }
     th { color:#6b7280; font-weight:600; }
@@ -131,6 +132,15 @@
             <div class="card"><h3>Deals by Stage</h3><canvas id="dealsByStage"></canvas></div>
             <div class="card"><h3>Sales by Team Member</h3><canvas id="salesByTeam"></canvas></div>
           </section>
+          <section class="card" style="margin-top:20px;">
+            <h3>Active Deals</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Deal owner</th><th>Deal description</th><th>Deal value</th><th>Expected close date</th><th>Discovery call source</th></tr></thead>
+                <tbody id="activeDealsTable"></tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </details>
 
@@ -206,6 +216,46 @@
       document.getElementById("callSalesNote").textContent = `${number(callSales?.unmatchedCalls || 0)} calls without a matching HubSpot deal name`;
     }
 
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function formatDate(value) {
+      return value ? String(value).slice(0, 10) : "Unknown";
+    }
+
+    function renderActiveDeals(activeDeals) {
+      const rows = activeDeals || [];
+      document.getElementById("activeDealsTable").innerHTML = rows.length ? rows.map(deal => `
+        <tr>
+          <td>${escapeHtml(deal.dealOwner || "Unknown")}</td>
+          <td>${escapeHtml(deal.dealDescription || "Unknown")}</td>
+          <td>${currency(deal.dealValue || 0)}</td>
+          <td>${escapeHtml(formatDate(deal.expectedCloseDate))}</td>
+          <td>${escapeHtml(deal.discoveryCallSource || "Unknown")}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="5">No active deals found</td></tr>`;
+    }
+
+    async function loadActiveDeals() {
+      const table = document.getElementById("activeDealsTable");
+      table.innerHTML = `<tr><td colspan="5">Loading active deals...</td></tr>`;
+      try {
+        const res = await fetch("/.netlify/functions/active-deals");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Active deals API failed");
+        renderActiveDeals(data.activeDeals || []);
+      } catch (err) {
+        table.innerHTML = `<tr><td colspan="5">Unable to load active deals: ${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
     async function loadDashboard() {
       const status = document.getElementById("status");
       status.style.display = "block";
@@ -244,6 +294,7 @@
         renderChart("dealsByStage", "bar", dealsByStage.map(x => x.label), dealsByStage.map(x => x.value), "Deals");
         const salesByTeam = data.charts.salesByTeam || rowsBy(data.deals, "owner", "amount");
         renderChart("salesByTeam", "bar", salesByTeam.map(x => x.label), salesByTeam.map(x => x.value), "Sales Value");
+        loadActiveDeals();
         const revenueByProduct = data.charts.revenueByProduct || rowsBy(data.purchases, "product", "amount");
         renderChart("revenueByProduct", "doughnut", revenueByProduct.map(x => x.label), revenueByProduct.map(x => x.value), "Revenue");
         const brochureByPage = data.charts.brochureDownloadsByPage || [];
