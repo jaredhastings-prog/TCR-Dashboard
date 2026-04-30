@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TCR Business Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { margin:0; font-family: Inter, Arial, sans-serif; background:#f6f7fb; color:#111827; }
+    .dashboard { max-width:1400px; margin:0 auto; padding:32px; }
+    .header { margin-bottom:20px; }
+    .header h1 { margin:0; font-size:32px; }
+    .header p { margin:8px 0 0; color:#6b7280; }
+    .status { padding:12px 16px; border-radius:14px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:14px; margin-bottom:20px; display:none; }
+    .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:20px 0 28px; background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:16px; box-shadow:0 8px 24px rgba(15,23,42,.04); }
+    .controls label { font-size:13px; color:#6b7280; font-weight:600; }
+    .controls select,.controls input { border:1px solid #d1d5db; border-radius:12px; padding:10px 12px; font-size:14px; background:#fff; }
+    .date-summary { margin-left:auto; font-size:14px; color:#374151; font-weight:600; }
+    .custom-dates { display:none; gap:12px; align-items:center; flex-wrap:wrap; }
+    .custom-dates.active { display:flex; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:20px; box-shadow:0 8px 24px rgba(15,23,42,.04); }
+    .kpi-title { font-size:13px; color:#6b7280; margin-bottom:8px; }
+    .kpi-value { font-size:26px; font-weight:700; }
+    .kpi-note { font-size:12px; color:#10b981; margin-top:8px; }
+    .section-title { font-size:22px; margin:32px 0 16px; }
+    .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }
+    .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+    .count-list { display:grid; gap:10px; margin-top:14px; }
+    .count-row { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:10px 0; border-bottom:1px solid #e5e7eb; }
+    .count-row:last-child { border-bottom:0; }
+    .count-label { color:#374151; font-size:14px; font-weight:600; line-height:1.3; }
+    .count-value { color:#111827; font-size:20px; font-weight:800; }
+    .card-note { color:#6b7280; font-size:12px; margin-top:6px; }
+    .metric-big { font-size:44px; font-weight:800; margin-top:26px; }
+    .metric-sub { color:#374151; font-size:16px; font-weight:700; margin-top:10px; }
+    .accordion { display:grid; gap:14px; margin-top:8px; }
+    .accordion-panel { background:#fff; border:1px solid #e5e7eb; border-radius:20px; box-shadow:0 8px 24px rgba(15,23,42,.04); overflow:hidden; }
+    .accordion-panel > summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px 24px; font-size:22px; font-weight:800; }
+    .accordion-panel > summary::-webkit-details-marker { display:none; }
+    .accordion-title { display:flex; align-items:center; gap:12px; }
+    .accordion-icon { width:30px; height:30px; border:1px solid #d1d5db; border-radius:999px; display:grid; place-items:center; font-size:20px; line-height:1; color:#111827; flex:0 0 auto; }
+    .accordion-icon::before { content:"+"; transform:translateY(-1px); }
+    .accordion-panel[open] .accordion-icon::before { content:"-"; transform:translateY(-2px); }
+    .accordion-content { border-top:1px solid #e5e7eb; padding:20px; }
+    .accordion-content > .card { box-shadow:none; }
+    .accordion-content > .card:first-child { margin-top:0; }
+    .accordion-content > .card:last-child { margin-bottom:0; }
+    .accordion-content .card { border-radius:16px; }
+    canvas { width:100%!important; height:300px!important; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th,td { padding:12px; border-bottom:1px solid #e5e7eb; text-align:left; }
+    th { color:#6b7280; font-weight:600; }
+    @media (max-width:1100px){ .kpi-grid{grid-template-columns:repeat(3,1fr);} .grid-3{grid-template-columns:1fr;} }
+    @media (max-width:800px){ .dashboard{padding:20px;} .kpi-grid,.grid-2{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+  <main class="dashboard">
+    <header class="header">
+      <h1>TCR Business Dashboard</h1>
+      <p>Live dashboard. Version: TCR_V27_KAJABI_BLOBS_FIX.</p>
+    </header>
+
+    <div id="status" class="status"></div>
+
+    <section class="controls">
+      <label for="dateRange">Date Range</label>
+      <select id="dateRange">
+        <option value="mtd" selected>Month to Date</option>
+        <option value="last30">Last 30 Days</option>
+        <option value="lastMonth">Last Month</option>
+        <option value="qtd">Quarter to Date</option>
+      </select>
+      <button id="refreshBtn" style="border:0;border-radius:12px;background:#111827;color:white;padding:11px 16px;font-weight:700;cursor:pointer;">Refresh</button>
+      <div id="dateSummary" class="date-summary">Loading...</div>
+    </section>
+
+    <section class="kpi-grid">
+      <div class="card"><div class="kpi-title">Calls Booked</div><div id="kpiCalls" class="kpi-value">—</div><div class="kpi-note">Mapped sales calls only</div></div>
+      <div class="card"><div class="kpi-title">Website Visitors</div><div id="kpiVisitors" class="kpi-value">—</div><div class="kpi-note">GA4 active users</div></div>
+      <div class="card"><div class="kpi-title">Conversion Rate</div><div id="kpiConversion" class="kpi-value">—</div><div class="kpi-note">Bookings + purchases</div></div>
+      <div class="card"><div class="kpi-title">NLP Brochure Downloads</div><div id="kpiBrochure" class="kpi-value">—</div><div class="kpi-note">Manual/mock until tracked</div></div>
+      <div class="card"><div class="kpi-title">Pipeline Value</div><div id="kpiPipeline" class="kpi-value">—</div><div class="kpi-note">HubSpot SQLs</div></div>
+      <div class="card"><div class="kpi-title">Revenue</div><div id="kpiRevenue" class="kpi-value">—</div><div class="kpi-note">Kajabi purchases</div></div>
+      <div class="card"><div class="kpi-title">Deals Won</div><div id="kpiDealsWon" class="kpi-value">—</div><div class="kpi-note">HubSpot closed won</div></div>
+      <div class="card"><div class="kpi-title">Referrals</div><div id="kpiReferrals" class="kpi-value">—</div><div class="kpi-note">Referral Factory pending</div></div>
+    </section>
+
+    <section class="accordion">
+      <details class="accordion-panel" open>
+        <summary><span class="accordion-title">Website Performance</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="card">
+            <table>
+              <thead><tr><th>Page</th><th>Views</th><th>Active Users</th><th>Views / Active User</th><th>Event Count</th><th>Bounce Rate</th><th>Calendly Clicks</th><th>Kajabi Clicks</th><th>NLP Brochure Downloads</th></tr></thead>
+              <tbody id="websiteTable"></tbody>
+            </table>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Calendly</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="grid-3">
+            <div class="card"><h3>Calls by Category/Page (This Month)</h3><div id="callsByCategoryList" class="count-list"></div></div>
+            <div class="card"><h3>Calls by Category/Page (Total since Nov 1, 2025)</h3><div id="callsByCategoryYtdList" class="count-list"></div></div>
+            <div class="card">
+              <h3>Calls to Sales Count</h3>
+              <div id="callSalesCount" class="metric-big">—</div>
+              <div id="callSalesRatio" class="metric-sub">—</div>
+              <div id="callSalesNote" class="card-note">HubSpot deal-name matches to call booking names</div>
+            </div>
+          </section>
+
+          <section class="card" style="margin-top:20px;">
+            <h3>Calendly Booking Detail</h3>
+            <table>
+              <thead><tr><th>Name</th><th>Team Member</th><th>Category/Page</th><th>Sub-Page</th><th>Sub-sub page</th><th>Date Booked</th></tr></thead>
+              <tbody id="callsTable"></tbody>
+            </table>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Sales Pipeline</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="grid-2">
+            <div class="card"><h3>Deals by Stage</h3><canvas id="dealsByStage"></canvas></div>
+            <div class="card"><h3>Sales by Team Member</h3><canvas id="salesByTeam"></canvas></div>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Kajabi</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="grid-2">
+            <div class="card"><h3>Revenue by Program / Product</h3><canvas id="revenueByProduct"></canvas></div>
+            <div class="card"><h3>NLP Brochure Downloads by Page</h3><canvas id="brochureDownloadsByPage"></canvas></div>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Referrals</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="grid-2">
+            <div class="card">
+              <h3>Referrals</h3>
+              <div id="referralCount" class="metric-big">—</div>
+              <div class="metric-sub">Referral tracking placeholder</div>
+              <div class="card-note">Webhook or export import pending Referral Factory plan access</div>
+            </div>
+            <div class="card">
+              <h3>Referral Source Detail</h3>
+              <div class="count-list">
+                <div class="count-row"><span class="count-label">No referral data connected yet</span><span class="count-value">0</span></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <script>
+    let charts = {};
+    const chartDefaults = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ boxWidth:12, font:{ size:12 }}}} };
+    const number = n => Number(n || 0).toLocaleString();
+    const currency = n => new Intl.NumberFormat("en-AU", { style:"currency", currency:"AUD", maximumFractionDigits:0 }).format(Number(n || 0));
+
+    function renderChart(id, type, labels, values, label) {
+      if (charts[id]) charts[id].destroy();
+      charts[id] = new Chart(document.getElementById(id), { type, data:{ labels, datasets:[{ label, data:values }] }, options: chartDefaults });
+    }
+
+    function resizeVisibleCharts() {
+      requestAnimationFrame(() => Object.values(charts).forEach(chart => chart.resize()));
+    }
+
+    function rowsBy(items, key, valueKey) {
+      const map = {};
+      for (const item of items || []) {
+        const label = item[key] || "Unknown";
+        map[label] = (map[label] || 0) + (valueKey ? Number(item[valueKey] || 0) : 1);
+      }
+      return Object.entries(map).map(([label, value]) => ({ label, value }));
+    }
+
+    function renderCountList(id, rows) {
+      const items = [...(rows || [])].sort((a, b) => Number(b.value || 0) - Number(a.value || 0) || String(a.label || "").localeCompare(String(b.label || "")));
+      document.getElementById(id).innerHTML = items.length ? items.map(row => `
+        <div class="count-row"><span class="count-label">${row.label || "Unknown"}</span><span class="count-value">${number(row.value)}</span></div>
+      `).join("") : `<div class="count-row"><span class="count-label">No calls</span><span class="count-value">0</span></div>`;
+    }
+
+    function renderCallSales(callSales) {
+      const total = Number(callSales?.totalCalls || 0);
+      const matched = Number(callSales?.matchedCalls || 0);
+      const rate = Number(callSales?.conversionRate || 0);
+      document.getElementById("callSalesCount").textContent = `${number(matched)} / ${number(total)}`;
+      document.getElementById("callSalesRatio").textContent = `${rate}% call-to-sales opportunity ratio`;
+      document.getElementById("callSalesNote").textContent = `${number(callSales?.unmatchedCalls || 0)} calls without a matching HubSpot deal name`;
+    }
+
+    async function loadDashboard() {
+      const status = document.getElementById("status");
+      status.style.display = "block";
+      status.textContent = "Loading dashboard data...";
+      const range = document.getElementById("dateRange").value;
+      document.getElementById("dateSummary").textContent = `Date Range: ${document.getElementById("dateRange").selectedOptions[0].text}`;
+
+      try {
+        const res = await fetch(`/.netlify/functions/dashboard-data?range=${range}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Dashboard API failed");
+
+        document.getElementById("kpiCalls").textContent = number(data.kpis.callsBooked);
+        document.getElementById("kpiVisitors").textContent = number(data.kpis.websiteVisitors);
+        document.getElementById("kpiConversion").textContent = `${data.kpis.conversionRate}%`;
+        document.getElementById("kpiBrochure").textContent = number(data.kpis.brochureDownloads);
+        document.getElementById("kpiPipeline").textContent = currency(data.kpis.pipelineValue);
+        document.getElementById("kpiRevenue").textContent = currency(data.kpis.revenue);
+        document.getElementById("kpiDealsWon").textContent = number(data.kpis.dealsWon);
+        document.getElementById("kpiReferrals").textContent = number(data.kpis.referrals);
+        document.getElementById("referralCount").textContent = number(data.kpis.referrals);
+
+        document.getElementById("websiteTable").innerHTML = (data.websitePages || []).map(p => `
+          <tr><td>${p.page}</td><td>${number(p.views)}</td><td>${number(p.activeUsers)}</td><td>${Number(p.viewsPerActiveUser || 0).toFixed(2)}</td><td>${number(p.eventCount)}</td><td>${Number(p.bounceRate || 0).toFixed(1)}%</td><td>${number(p.outboundCalendlyClicks)}</td><td>${number(p.outboundKajabiClicks)}</td><td>${number(p.brochureDownloads)}</td></tr>
+        `).join("");
+
+        document.getElementById("callsTable").innerHTML = (data.calls || []).slice(0, 20).map(c => `
+          <tr><td>${c.name || "Unknown"}</td><td>${c.teamMember || "Unknown"}</td><td>${c.category || ""}</td><td>${c.subCategory || ""}</td><td>${c.subSubCategory || ""}</td><td>${c.date || ""}</td></tr>
+        `).join("");
+
+        const callsByCategory = data.charts.callsByCategory || rowsBy(data.calls, "category");
+        renderCountList("callsByCategoryList", callsByCategory);
+        renderCountList("callsByCategoryYtdList", data.charts.callsByCategoryYtd || []);
+        renderCallSales(data.callSales);
+        const dealsByStage = data.charts.dealsByStage || rowsBy(data.deals, "stage");
+        renderChart("dealsByStage", "bar", dealsByStage.map(x => x.label), dealsByStage.map(x => x.value), "Deals");
+        const salesByTeam = data.charts.salesByTeam || rowsBy(data.deals, "owner", "amount");
+        renderChart("salesByTeam", "bar", salesByTeam.map(x => x.label), salesByTeam.map(x => x.value), "Sales Value");
+        const revenueByProduct = data.charts.revenueByProduct || rowsBy(data.purchases, "product", "amount");
+        renderChart("revenueByProduct", "doughnut", revenueByProduct.map(x => x.label), revenueByProduct.map(x => x.value), "Revenue");
+        const brochureByPage = data.charts.brochureDownloadsByPage || [];
+        renderChart("brochureDownloadsByPage", "bar", brochureByPage.map(x => x.label), brochureByPage.map(x => x.value), "Downloads");
+
+        if (data.meta?.warnings?.length) {
+          status.style.display = "block";
+          status.textContent = data.meta.warnings.join(" | ");
+        } else {
+          status.style.display = "none";
+        }
+      } catch (err) {
+        status.style.display = "block";
+        status.textContent = "Error loading dashboard: " + err.message;
+      }
+    }
+
+    document.getElementById("dateRange").addEventListener("change", loadDashboard);
+    document.getElementById("refreshBtn").addEventListener("click", loadDashboard);
+    document.querySelectorAll(".accordion-panel").forEach(panel => {
+      panel.addEventListener("toggle", () => {
+        if (panel.open) resizeVisibleCharts();
+      });
+    });
+    loadDashboard();
+  </script>
+</body>
+</html>
