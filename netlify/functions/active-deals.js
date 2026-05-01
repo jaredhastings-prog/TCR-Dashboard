@@ -1,5 +1,7 @@
 const { slugFrom, mapCalendlySlug } = require("./_shared");
 
+const HUBSPOT_ACTIVE_DEALS_START_DATE = "2025-01-01";
+
 function json(statusCode, body) {
   return {
     statusCode,
@@ -18,6 +20,22 @@ async function hsFetch(path, token, options = {}) {
     throw new Error(`HubSpot API ${res.status}: ${text.slice(0, 500)}`);
   }
   return await res.json();
+}
+
+async function hsSearchAll(path, token, body) {
+  const results = [];
+  let after;
+
+  do {
+    const page = await hsFetch(path, token, {
+      method: "POST",
+      body: JSON.stringify({ ...body, ...(after ? { after } : {}) }),
+    });
+    results.push(...(page.results || []));
+    after = page.paging && page.paging.next ? page.paging.next.after : null;
+  } while (after);
+
+  return results;
 }
 
 async function calendlyFetch(url, token) {
@@ -258,23 +276,21 @@ async function fetchActiveDeals(calls = []) {
     ...discoveredCalendlyProperties,
   ]));
 
-  const data = await hsFetch("/crm/v3/objects/deals/search", token, {
-    method: "POST",
-    body: JSON.stringify({
-      filterGroups: [{
-        filters: [
-          { propertyName: "pipeline", operator: "EQ", value: pipeline.id },
-          { propertyName: "dealstage", operator: "IN", values: openStageIds },
-        ],
-      }],
-      properties,
-      sorts: ["closedate"],
-      limit: 100,
-    }),
+  const results = await hsSearchAll("/crm/v3/objects/deals/search", token, {
+    filterGroups: [{
+      filters: [
+        { propertyName: "pipeline", operator: "EQ", value: pipeline.id },
+        { propertyName: "dealstage", operator: "IN", values: openStageIds },
+        { propertyName: "createdate", operator: "GTE", value: `${HUBSPOT_ACTIVE_DEALS_START_DATE}T00:00:00.000Z` },
+      ],
+    }],
+    properties,
+    sorts: ["closedate"],
+    limit: 100,
   });
   const sourcePropertyNames = Array.from(new Set([...sourceCandidates, ...discoveredCalendlyProperties]));
 
-  return (data.results || []).map(deal => {
+  return results.map(deal => {
     const p = deal.properties || {};
     const description = firstPropertyValue(p, descriptionCandidates);
     const activeDeal = {
@@ -283,6 +299,7 @@ async function fetchActiveDeals(calls = []) {
       dealOwner: ownerMap[p.hubspot_owner_id] || "Unknown",
       dealDescription: description ? description.value : (p.dealname || "Untitled deal"),
       dealValue: Number(p.amount || 0),
+      createdDate: p.createdate || "",
       expectedCloseDate: p.closedate || "",
       rawProperties: p,
     };
@@ -292,6 +309,7 @@ async function fetchActiveDeals(calls = []) {
       dealOwner: activeDeal.dealOwner,
       dealDescription: activeDeal.dealDescription,
       dealValue: activeDeal.dealValue,
+      createdDate: activeDeal.createdDate,
       expectedCloseDate: activeDeal.expectedCloseDate,
       discoveryCallSource: inferDiscoveryCallSource(activeDeal, calls, sourcePropertyNames),
     };
@@ -304,7 +322,7 @@ exports.handler = async () => {
       fetchCalendlyCalls().catch(() => []),
     ]);
     const activeDeals = await fetchActiveDeals(calls);
-    return json(200, { activeDeals });
+    return json(200, { activeDeals, meta: { activeDealDateField: "createdate", activeDealsStartDate: HUBSPOT_ACTIVE_DEALS_START_DATE } });
   } catch (err) {
     return json(500, { error: err.message, activeDeals: [] });
   }
