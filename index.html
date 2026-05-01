@@ -282,7 +282,7 @@
           <tr><td>${p.page}</td><td>${number(p.views)}</td><td>${number(p.activeUsers)}</td><td>${Number(p.viewsPerActiveUser || 0).toFixed(2)}</td><td>${number(p.eventCount)}</td><td>${Number(p.bounceRate || 0).toFixed(1)}%</td><td>${number(p.outboundCalendlyClicks)}</td><td>${number(p.outboundKajabiClicks)}</td><td>${number(p.brochureDownloads)}</td></tr>
         `).join("");
 
-        document.getElementById("callsTable").innerHTML = (data.calls || []).slice(0, 20).map(c => `
+        document.getElementById("callsTable").innerHTML = (data.calls || []).map(c => `
           <tr><td>${c.name || "Unknown"}</td><td>${c.teamMember || "Unknown"}</td><td>${c.category || ""}</td><td>${c.subCategory || ""}</td><td>${c.subSubCategory || ""}</td><td>${c.date || ""}</td></tr>
         `).join("");
 
