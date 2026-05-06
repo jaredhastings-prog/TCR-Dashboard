@@ -109,10 +109,13 @@
             <div class="card"><h3>Calls by Category/Page (This Month)</h3><div id="callsByCategoryList" class="count-list"></div></div>
             <div class="card"><h3>Calls by Category/Page (Total since Nov 1, 2025)</h3><div id="callsByCategoryYtdList" class="count-list"></div></div>
             <div class="card">
-              <h3>Calls to Sales Count</h3>
-              <div id="callSalesCount" class="metric-big">—</div>
-              <div id="callSalesRatio" class="metric-sub">—</div>
-              <div id="callSalesNote" class="card-note">HubSpot deal-name matches to call booking names</div>
+              <h3>Sales Calls Performance</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Team Member</th><th>Calls</th><th>Conversion to deals</th><th>Won</th></tr></thead>
+                  <tbody id="salesCallsPerformanceTable"></tbody>
+                </table>
+              </div>
             </div>
           </section>
 
@@ -180,6 +183,7 @@
   <script>
     let charts = {};
     const chartDefaults = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ boxWidth:12, font:{ size:12 }}}} };
+    const calendlyTeamMembers = ["Madeleine Robinson", "Joseph Scott", "Jay Hedley"];
     const number = n => Number(n || 0).toLocaleString();
     const currency = n => new Intl.NumberFormat("en-AU", { style:"currency", currency:"AUD", maximumFractionDigits:0 }).format(Number(n || 0));
 
@@ -208,13 +212,30 @@
       `).join("") : `<div class="count-row"><span class="count-label">No calls</span><span class="count-value">0</span></div>`;
     }
 
-    function renderCallSales(callSales) {
-      const total = Number(callSales?.totalCalls || 0);
-      const matched = Number(callSales?.matchedCalls || 0);
-      const rate = Number(callSales?.conversionRate || 0);
-      document.getElementById("callSalesCount").textContent = `${number(matched)} / ${number(total)}`;
-      document.getElementById("callSalesRatio").textContent = `${rate}% call-to-sales opportunity ratio`;
-      document.getElementById("callSalesNote").textContent = `${number(callSales?.unmatchedCalls || 0)} calls without a matching HubSpot deal name`;
+    function buildSalesCallPerformanceRows(calls) {
+      const counts = new Map(calendlyTeamMembers.map(member => [member, 0]));
+      for (const call of calls || []) {
+        const teamMember = call.teamMember || "Unknown";
+        counts.set(teamMember, (counts.get(teamMember) || 0) + 1);
+      }
+      return Array.from(counts.entries()).map(([teamMember, calls]) => ({
+        teamMember,
+        calls,
+        conversionToDeals: "Needs HubSpot integration",
+        won: ""
+      }));
+    }
+
+    function renderSalesCallPerformance(rows) {
+      const items = rows || [];
+      document.getElementById("salesCallsPerformanceTable").innerHTML = items.length ? items.map(row => `
+        <tr>
+          <td>${escapeHtml(row.teamMember || "Unknown")}</td>
+          <td>${number(row.calls)}</td>
+          <td>${escapeHtml(row.conversionToDeals || "Needs HubSpot integration")}</td>
+          <td>${row.won === undefined || row.won === null ? "" : escapeHtml(row.won)}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="4">No Calendly team members found</td></tr>`;
     }
 
     function escapeHtml(value) {
@@ -278,7 +299,7 @@
         const callsByCategory = data.charts.callsByCategory || rowsBy(data.calls, "category");
         renderCountList("callsByCategoryList", callsByCategory);
         renderCountList("callsByCategoryYtdList", data.charts.callsByCategoryYtd || []);
-        renderCallSales(data.callSales);
+        renderSalesCallPerformance(buildSalesCallPerformanceRows(data.calls || []));
         const dealsByStage = data.charts.dealsByStage || rowsBy(data.deals, "stage");
         renderChart("dealsByStage", "bar", dealsByStage.map(x => x.label), dealsByStage.map(x => x.value), "Deals");
         const salesByTeam = data.charts.salesByTeam || rowsBy(data.deals, "owner", "amount");
