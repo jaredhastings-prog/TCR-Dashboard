@@ -9,6 +9,9 @@
     body { margin:0; font-family: Inter, Arial, sans-serif; background:#f6f7fb; color:#111827; }
     .dashboard { max-width:1400px; margin:0 auto; padding:32px; }
     .header { margin-bottom:20px; }
+    .brand-header { display:flex; align-items:center; gap:24px; min-width:0; }
+    .brand-logo { width:260px; max-width:34vw; height:auto; display:block; flex:0 0 auto; }
+    .brand-copy { min-width:0; }
     .header h1 { margin:0; font-size:32px; }
     .header p { margin:8px 0 0; color:#6b7280; }
     .status { padding:12px 16px; border-radius:14px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:14px; margin-bottom:20px; display:none; }
@@ -54,14 +57,19 @@
     th,td { padding:12px; border-bottom:1px solid #e5e7eb; text-align:left; }
     th { color:#6b7280; font-weight:600; }
     @media (max-width:1100px){ .kpi-grid{grid-template-columns:repeat(3,1fr);} .grid-3{grid-template-columns:1fr;} }
-    @media (max-width:800px){ .dashboard{padding:20px;} .kpi-grid,.grid-2{grid-template-columns:1fr;} }
+    @media (max-width:800px){ .dashboard{padding:20px;} .brand-header{align-items:flex-start; flex-direction:column; gap:14px;} .brand-logo{width:220px; max-width:76vw;} .kpi-grid,.grid-2{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
   <main class="dashboard">
     <header class="header">
-      <h1>TCR Business Dashboard</h1>
-      <p>Live dashboard. Version: TCR_V27_KAJABI_BLOBS_FIX.</p>
+      <div class="brand-header">
+        <img class="brand-logo" src="assets/coaching-room-logo.png" alt="The Coaching Room" />
+        <div class="brand-copy">
+          <h1>TCR Business Dashboard</h1>
+          <p>Live dashboard. Version: TCR_V27_KAJABI_BLOBS_FIX.</p>
+        </div>
+      </div>
     </header>
 
     <div id="status" class="status"></div>
