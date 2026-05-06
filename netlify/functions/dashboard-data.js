@@ -1,6 +1,8 @@
 const { getStore } = require("@netlify/blobs");
 const { getRange, slugFrom, mapCalendlySlug, normaliseProduct, groupCount, groupSum, emptyData } = require("./_shared");
 
+const HUBSPOT_ACTIVE_DEALS_START_DATE = "2025-01-01";
+
 async function calendlyFetch(url, token) {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
@@ -156,6 +158,22 @@ async function hsFetch(path, token, options = {}) {
   return await res.json();
 }
 
+async function hsSearchAll(path, token, body) {
+  const results = [];
+  let after;
+
+  do {
+    const page = await hsFetch(path, token, {
+      method: "POST",
+      body: JSON.stringify({ ...body, ...(after ? { after } : {}) }),
+    });
+    results.push(...(page.results || []));
+    after = page.paging && page.paging.next ? page.paging.next.after : null;
+  } while (after);
+
+  return results;
+}
+
 function classifyStage(label) {
   const l = String(label || "").toLowerCase();
   if (l.includes("qualified")) return "Qualified Sales Lead";
@@ -194,9 +212,9 @@ async function fetchHubSpotDeals(range) {
     limit: 100,
   };
 
-  const data = await hsFetch("/crm/v3/objects/deals/search", token, { method: "POST", body: JSON.stringify(body) });
+  const results = await hsSearchAll("/crm/v3/objects/deals/search", token, body);
 
-  return (data.results || []).map(d => {
+  return results.map(d => {
     const p = d.properties || {};
     const stageLabel = stageLabels[p.dealstage] || p.dealstage || "Unknown";
     return {
@@ -230,6 +248,157 @@ function dealMatchesCallName(callName, dealName) {
   const callTokens = call.split(" ").filter(token => token.length >= 3);
   if (!callTokens.length) return false;
   return callTokens.every(token => deal.includes(token));
+}
+
+async function fetchHubSpotPropertyNames(objectType, token) {
+  try {
+    const data = await hsFetch(`/crm/v3/properties/${objectType}?archived=false`, token);
+    return new Set((data.results || []).map(property => property.name).filter(Boolean));
+  } catch {
+    return null;
+  }
+}
+
+function keepExistingProperties(names, propertyNames) {
+  if (!propertyNames) return [];
+  return names.filter(name => propertyNames.has(name));
+}
+
+function firstPropertyValue(properties, names) {
+  for (const name of names || []) {
+    const value = properties && properties[name];
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return { name, value: String(value).trim() };
+    }
+  }
+  return null;
+}
+
+function stageIsClosed(stage) {
+  const metadata = stage.metadata || {};
+  if (String(metadata.isClosed || "").toLowerCase() === "true") return true;
+  const classified = classifyStage(stage.label);
+  return classified === "Closed Won" || classified === "Closed Lost" || classified === "Voided";
+}
+
+function sourceLooksLikeCalendly(value) {
+  const text = normaliseMatchText(value);
+  return text.includes("calendly") || text.includes("discovery call") || text.includes("booked call") || text.includes("call booking");
+}
+
+function inferDiscoveryCallSource(deal, calls, sourcePropertyNames) {
+  const directSource = firstPropertyValue(deal.rawProperties, sourcePropertyNames);
+  if (directSource && sourceLooksLikeCalendly(directSource.value)) {
+    return `HubSpot: ${directSource.value}`;
+  }
+
+  const matchedCall = (calls || []).find(call => dealMatchesCallName(call.name, deal.dealName));
+  if (matchedCall) {
+    return matchedCall.bookedDate
+      ? `Calendly match: ${matchedCall.eventName} (${matchedCall.bookedDate})`
+      : `Calendly match: ${matchedCall.eventName}`;
+  }
+
+  return "No Calendly match";
+}
+
+async function fetchHubSpotActiveDeals(calls = []) {
+  const token = process.env.HUBSPOT_ACCESS_TOKEN;
+  if (!token) return [];
+
+  const [pipelines, owners, dealPropertyNames] = await Promise.all([
+    hsFetch("/crm/v3/pipelines/deals", token),
+    hsFetch("/crm/v3/owners?limit=100", token),
+    fetchHubSpotPropertyNames("deals", token),
+  ]);
+
+  const pipeline = (pipelines.results || []).find(p => String(p.label).toLowerCase() === "sales pipeline") || (pipelines.results || [])[0];
+  if (!pipeline) return [];
+
+  const openStageIds = [];
+  for (const stage of pipeline.stages || []) {
+    if (!stageIsClosed(stage)) openStageIds.push(stage.id);
+  }
+  if (!openStageIds.length) return [];
+
+  const ownerMap = {};
+  for (const owner of owners.results || []) {
+    ownerMap[owner.id] = [owner.firstName, owner.lastName].filter(Boolean).join(" ") || owner.email || owner.id;
+  }
+
+  const descriptionCandidates = keepExistingProperties(["description", "deal_description", "product"], dealPropertyNames);
+  const sourceCandidates = keepExistingProperties([
+    "discovery_call_source",
+    "discovery_source",
+    "calendly_source",
+    "calendly_event",
+    "calendly_event_name",
+    "calendly_booking",
+    "hs_analytics_source",
+    "hs_analytics_source_data_1",
+    "hs_analytics_source_data_2",
+    "hs_latest_source",
+    "hs_latest_source_data_1",
+    "hs_latest_source_data_2",
+    "hs_object_source",
+    "hs_object_source_label",
+    "hs_object_source_detail_1",
+    "hs_object_source_detail_2",
+  ], dealPropertyNames);
+  const discoveredCalendlyProperties = dealPropertyNames
+    ? Array.from(dealPropertyNames).filter(name => /calendly|discovery/i.test(name)).slice(0, 25)
+    : [];
+  const properties = Array.from(new Set([
+    "dealname",
+    "amount",
+    "dealstage",
+    "pipeline",
+    "hubspot_owner_id",
+    "closedate",
+    "createdate",
+    ...descriptionCandidates,
+    ...sourceCandidates,
+    ...discoveredCalendlyProperties,
+  ]));
+
+  const results = await hsSearchAll("/crm/v3/objects/deals/search", token, {
+    filterGroups: [{
+      filters: [
+        { propertyName: "pipeline", operator: "EQ", value: pipeline.id },
+        { propertyName: "dealstage", operator: "IN", values: openStageIds },
+        { propertyName: "createdate", operator: "GTE", value: `${HUBSPOT_ACTIVE_DEALS_START_DATE}T00:00:00.000Z` },
+      ],
+    }],
+    properties,
+    sorts: ["closedate"],
+    limit: 100,
+  });
+  const sourcePropertyNames = Array.from(new Set([...sourceCandidates, ...discoveredCalendlyProperties]));
+
+  return results.map(deal => {
+    const p = deal.properties || {};
+    const description = firstPropertyValue(p, descriptionCandidates);
+    const activeDeal = {
+      id: deal.id,
+      dealName: p.dealname || "Untitled deal",
+      dealOwner: ownerMap[p.hubspot_owner_id] || "Unknown",
+      dealDescription: description ? description.value : (p.dealname || "Untitled deal"),
+      dealValue: Number(p.amount || 0),
+      createdDate: p.createdate || "",
+      expectedCloseDate: p.closedate || "",
+      rawProperties: p,
+    };
+
+    return {
+      id: activeDeal.id,
+      dealOwner: activeDeal.dealOwner,
+      dealDescription: activeDeal.dealDescription,
+      dealValue: activeDeal.dealValue,
+      createdDate: activeDeal.createdDate,
+      expectedCloseDate: activeDeal.expectedCloseDate,
+      discoveryCallSource: inferDiscoveryCallSource(activeDeal, calls, sourcePropertyNames),
+    };
+  });
 }
 
 async function fetchHubSpotCallSalesMatches(calls) {
@@ -583,10 +752,9 @@ function getKajabiPurchaseStore() {
   return getStore("kajabi-purchases");
 }
 
-function normalise(range, websitePages, calls, deals, purchases, warnings) {
+function normalise(range, websitePages, calls, deals, purchases, activeDeals, warnings) {
   const visitors = websitePages.reduce((t, p) => t + Number(p.activeUsers || 0), 0);
   const closedWon = deals.filter(d => d.stage === "Closed Won");
-  const openDeals = deals.filter(d => d.stage === "Qualified Sales Lead");
   const conversionEvents = calls.length + purchases.length;
   const conversionRate = visitors ? Number(((conversionEvents / visitors) * 100).toFixed(2)) : 0;
 
@@ -596,9 +764,10 @@ function normalise(range, websitePages, calls, deals, purchases, warnings) {
       callsBooked: calls.length,
       websiteVisitors: visitors,
       conversionRate,
-      pipelineValue: openDeals.reduce((t, d) => t + Number(d.amount || 0), 0),
+      pipelineValue: activeDeals.reduce((t, d) => t + Number(d.dealValue || 0), 0),
       revenue: purchases.reduce((t, p) => t + Number(p.amount || 0), 0),
       dealsWon: closedWon.length,
+      dealsWonValue: closedWon.reduce((t, d) => t + Number(d.amount || 0), 0),
       referrals: 0,
       brochureDownloads: websitePages.reduce((t, p) => t + Number(p.brochureDownloads || 0), 0),
       outboundCalendlyClicks: websitePages.reduce((t, p) => t + Number(p.outboundCalendlyClicks || 0), 0),
@@ -607,6 +776,7 @@ function normalise(range, websitePages, calls, deals, purchases, warnings) {
     websitePages,
     calls,
     deals,
+    activeDeals,
     purchases,
     referrals: [],
     charts: {
@@ -639,7 +809,11 @@ exports.handler = async (event) => {
   ]);
 
   const calls = (calendlyYtdResult.calls || []).filter(call => isDateInRange(call.bookedDate || call.date, range));
-  const data = normalise(range, websitePages, calls, deals, purchases, warnings);
+  const activeDeals = await fetchHubSpotActiveDeals(calendlyYtdResult.calls || []).catch(e => {
+    warnings.push(`HubSpot active deals: ${e.message}`);
+    return [];
+  });
+  const data = normalise(range, websitePages, calls, deals, purchases, activeDeals, warnings);
   data.callSales = await fetchHubSpotCallSalesMatches(calls).catch(e => {
     warnings.push(`HubSpot call-sales matching: ${e.message}`);
     return { totalCalls: calls.length, matchedCalls: 0, unmatchedCalls: calls.length, conversionRate: 0, matches: [] };
@@ -647,6 +821,12 @@ exports.handler = async (event) => {
   data.meta.calendly = { ...(calendlyYtdResult.meta || {}), includedAllowedEvents: calls.length, sourceRange: calendlyYtdRange, displayedRange: range };
   data.meta.calendlyYtd = calendlyYtdResult.meta || null;
   data.meta.calendlyYtdRange = calendlyYtdRange;
+  data.meta.hubspot = {
+    activeDealDateField: "createdate",
+    activeDealsStartDate: HUBSPOT_ACTIVE_DEALS_START_DATE,
+    pipelineValueSource: "activeDeals",
+    dealsWonValueDateField: "closedate",
+  };
   data.charts.callsByCategoryYtd = groupCount(calendlyYtdResult.calls || [], c => c.category);
 
   return {

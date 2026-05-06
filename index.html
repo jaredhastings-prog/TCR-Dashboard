@@ -22,6 +22,7 @@
     .card { background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:20px; box-shadow:0 8px 24px rgba(15,23,42,.04); }
     .kpi-title { font-size:13px; color:#6b7280; margin-bottom:8px; }
     .kpi-value { font-size:26px; font-weight:700; }
+    .kpi-subvalue { font-size:13px; font-weight:700; color:#374151; margin-top:4px; }
     .kpi-note { font-size:12px; color:#10b981; margin-top:8px; }
     .section-title { font-size:22px; margin:32px 0 16px; }
     .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }
@@ -82,9 +83,9 @@
       <div class="card"><div class="kpi-title">Website Visitors</div><div id="kpiVisitors" class="kpi-value">—</div><div class="kpi-note">GA4 active users</div></div>
       <div class="card"><div class="kpi-title">Conversion Rate</div><div id="kpiConversion" class="kpi-value">—</div><div class="kpi-note">Bookings + purchases</div></div>
       <div class="card"><div class="kpi-title">NLP Brochure Downloads</div><div id="kpiBrochure" class="kpi-value">—</div><div class="kpi-note">Manual/mock until tracked</div></div>
-      <div class="card"><div class="kpi-title">Pipeline Value</div><div id="kpiPipeline" class="kpi-value">—</div><div class="kpi-note">HubSpot SQLs</div></div>
+      <div class="card"><div class="kpi-title">Pipeline Value</div><div id="kpiPipeline" class="kpi-value">—</div><div class="kpi-note">Active/open since Jan 1, 2025</div></div>
       <div class="card"><div class="kpi-title">Revenue</div><div id="kpiRevenue" class="kpi-value">—</div><div class="kpi-note">Kajabi purchases</div></div>
-      <div class="card"><div class="kpi-title">Deals Won</div><div id="kpiDealsWon" class="kpi-value">—</div><div class="kpi-note">HubSpot closed won</div></div>
+      <div class="card"><div class="kpi-title">Deals Won</div><div id="kpiDealsWon" class="kpi-value">—</div><div id="kpiDealsWonValue" class="kpi-subvalue">—</div><div class="kpi-note">HubSpot closed won</div></div>
       <div class="card"><div class="kpi-title">Referrals</div><div id="kpiReferrals" class="kpi-value">—</div><div class="kpi-note">Referral Factory pending</div></div>
     </section>
 
@@ -243,19 +244,6 @@
       `).join("") : `<tr><td colspan="5">No active deals found</td></tr>`;
     }
 
-    async function loadActiveDeals() {
-      const table = document.getElementById("activeDealsTable");
-      table.innerHTML = `<tr><td colspan="5">Loading active deals...</td></tr>`;
-      try {
-        const res = await fetch("/.netlify/functions/active-deals");
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Active deals API failed");
-        renderActiveDeals(data.activeDeals || []);
-      } catch (err) {
-        table.innerHTML = `<tr><td colspan="5">Unable to load active deals: ${escapeHtml(err.message)}</td></tr>`;
-      }
-    }
-
     async function loadDashboard() {
       const status = document.getElementById("status");
       status.style.display = "block";
@@ -275,6 +263,7 @@
         document.getElementById("kpiPipeline").textContent = currency(data.kpis.pipelineValue);
         document.getElementById("kpiRevenue").textContent = currency(data.kpis.revenue);
         document.getElementById("kpiDealsWon").textContent = number(data.kpis.dealsWon);
+        document.getElementById("kpiDealsWonValue").textContent = `${currency(data.kpis.dealsWonValue)} won value`;
         document.getElementById("kpiReferrals").textContent = number(data.kpis.referrals);
         document.getElementById("referralCount").textContent = number(data.kpis.referrals);
 
@@ -294,7 +283,7 @@
         renderChart("dealsByStage", "bar", dealsByStage.map(x => x.label), dealsByStage.map(x => x.value), "Deals");
         const salesByTeam = data.charts.salesByTeam || rowsBy(data.deals, "owner", "amount");
         renderChart("salesByTeam", "bar", salesByTeam.map(x => x.label), salesByTeam.map(x => x.value), "Sales Value");
-        loadActiveDeals();
+        renderActiveDeals(data.activeDeals || []);
         const revenueByProduct = data.charts.revenueByProduct || rowsBy(data.purchases, "product", "amount");
         renderChart("revenueByProduct", "doughnut", revenueByProduct.map(x => x.label), revenueByProduct.map(x => x.value), "Revenue");
         const brochureByPage = data.charts.brochureDownloadsByPage || [];

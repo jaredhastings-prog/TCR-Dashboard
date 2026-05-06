@@ -95,10 +95,11 @@ function groupSum(items, labelFn, valueFn) {
 function emptyData(range, warnings = []) {
   return {
     dateRange: range,
-    kpis: { callsBooked: 0, websiteVisitors: 0, conversionRate: 0, pipelineValue: 0, revenue: 0, dealsWon: 0, referrals: 0, brochureDownloads: 0, outboundCalendlyClicks: 0, outboundKajabiClicks: 0 },
+    kpis: { callsBooked: 0, websiteVisitors: 0, conversionRate: 0, pipelineValue: 0, revenue: 0, dealsWon: 0, dealsWonValue: 0, referrals: 0, brochureDownloads: 0, outboundCalendlyClicks: 0, outboundKajabiClicks: 0 },
     websitePages: [],
     calls: [],
     deals: [],
+    activeDeals: [],
     purchases: [],
     referrals: [],
     charts: { callsByCategory: [], callsByTeamMember: [], dealsByStage: [], salesByTeam: [], revenueByProduct: [], brochureDownloadsByPage: [] },
