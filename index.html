@@ -106,13 +106,13 @@
         <summary><span class="accordion-title">Calendly</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
           <section class="grid-3">
-            <div class="card"><h3>Calls by Category/Page (This Month)</h3><div id="callsByCategoryList" class="count-list"></div></div>
-            <div class="card"><h3>Calls by Category/Page (Total since Nov 1, 2025)</h3><div id="callsByCategoryYtdList" class="count-list"></div></div>
+            <div class="card"><h3>Calls Booked by Category/Page (This Month)</h3><div id="callsByCategoryList" class="count-list"></div></div>
+            <div class="card"><h3>Calls Booked by Category/Page (Total Since Nov 1, 2025)</h3><div id="callsByCategoryYtdList" class="count-list"></div></div>
             <div class="card">
               <h3>Sales Calls Performance</h3>
               <div class="table-scroll">
                 <table>
-                  <thead><tr><th>Team Member</th><th>Calls</th><th>Conversion to deals</th><th>Won</th></tr></thead>
+                  <thead><tr><th>Team Member</th><th>Calls Had This Month</th><th>Conversion to deals</th><th>Won</th></tr></thead>
                   <tbody id="salesCallsPerformanceTable"></tbody>
                 </table>
               </div>
@@ -133,8 +133,24 @@
         <summary><span class="accordion-title">Sales Pipeline</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
           <section class="grid-2">
-            <div class="card"><h3>Deals by Stage</h3><canvas id="dealsByStage"></canvas></div>
-            <div class="card"><h3>Sales by Team Member</h3><canvas id="salesByTeam"></canvas></div>
+            <div class="card">
+              <h3>Deals by Stage</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Stage</th><th>Deals</th></tr></thead>
+                  <tbody id="dealsByStageTable"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Sales Won by Team Member</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Name</th><th>Count</th></tr></thead>
+                  <tbody id="salesWonByTeamTable"></tbody>
+                </table>
+              </div>
+            </div>
           </section>
           <section class="card" style="margin-top:20px;">
             <h3>Active Deals</h3>
@@ -210,6 +226,13 @@
       document.getElementById(id).innerHTML = items.length ? items.map(row => `
         <div class="count-row"><span class="count-label">${row.label || "Unknown"}</span><span class="count-value">${number(row.value)}</span></div>
       `).join("") : `<div class="count-row"><span class="count-label">No calls</span><span class="count-value">0</span></div>`;
+    }
+
+    function renderTwoColumnTable(id, rows, emptyLabel) {
+      const items = [...(rows || [])].sort((a, b) => Number(b.value || 0) - Number(a.value || 0) || String(a.label || "").localeCompare(String(b.label || "")));
+      document.getElementById(id).innerHTML = items.length ? items.map(row => `
+        <tr><td>${escapeHtml(row.label || "Unknown")}</td><td>${number(row.value)}</td></tr>
+      `).join("") : `<tr><td>${escapeHtml(emptyLabel)}</td><td>0</td></tr>`;
     }
 
     function buildSalesCallPerformanceRows(calls) {
@@ -301,9 +324,9 @@
         renderCountList("callsByCategoryYtdList", data.charts.callsByCategoryYtd || []);
         renderSalesCallPerformance(buildSalesCallPerformanceRows(data.calls || []));
         const dealsByStage = data.charts.dealsByStage || rowsBy(data.deals, "stage");
-        renderChart("dealsByStage", "bar", dealsByStage.map(x => x.label), dealsByStage.map(x => x.value), "Deals");
-        const salesByTeam = data.charts.salesByTeam || rowsBy(data.deals, "owner", "amount");
-        renderChart("salesByTeam", "bar", salesByTeam.map(x => x.label), salesByTeam.map(x => x.value), "Sales Value");
+        renderTwoColumnTable("dealsByStageTable", dealsByStage, "No deals");
+        const salesWonByTeam = rowsBy((data.deals || []).filter(deal => deal.stage === "Closed Won"), "owner");
+        renderTwoColumnTable("salesWonByTeamTable", salesWonByTeam, "No won sales");
         renderActiveDeals(data.activeDeals || []);
         const revenueByProduct = data.charts.revenueByProduct || rowsBy(data.purchases, "product", "amount");
         renderChart("revenueByProduct", "doughnut", revenueByProduct.map(x => x.label), revenueByProduct.map(x => x.value), "Revenue");
