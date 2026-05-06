@@ -129,11 +129,7 @@
       <details class="accordion-panel">
         <summary><span class="accordion-title">Sales Pipeline</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
-          <section class="grid-2">
-            <div class="card"><h3>Deals by Stage</h3><canvas id="dealsByStage"></canvas></div>
-            <div class="card"><h3>Sales by Team Member</h3><canvas id="salesByTeam"></canvas></div>
-          </section>
-          <section class="card" style="margin-top:20px;">
+          <section class="card">
             <h3>Active Deals</h3>
             <div class="table-scroll">
               <table>
@@ -279,10 +275,6 @@
         renderCountList("callsByCategoryList", callsByCategory);
         renderCountList("callsByCategoryYtdList", data.charts.callsByCategoryYtd || []);
         renderCallSales(data.callSales);
-        const dealsByStage = data.charts.dealsByStage || rowsBy(data.deals, "stage");
-        renderChart("dealsByStage", "bar", dealsByStage.map(x => x.label), dealsByStage.map(x => x.value), "Deals");
-        const salesByTeam = data.charts.salesByTeam || rowsBy(data.deals, "owner", "amount");
-        renderChart("salesByTeam", "bar", salesByTeam.map(x => x.label), salesByTeam.map(x => x.value), "Sales Value");
         renderActiveDeals(data.activeDeals || []);
         const revenueByProduct = data.charts.revenueByProduct || rowsBy(data.purchases, "product", "amount");
         renderChart("revenueByProduct", "doughnut", revenueByProduct.map(x => x.label), revenueByProduct.map(x => x.value), "Revenue");
