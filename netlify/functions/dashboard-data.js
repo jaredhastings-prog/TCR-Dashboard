@@ -448,11 +448,12 @@ async function fetchHubSpotCallSalesMatches(calls) {
   };
 }
 
-async function fetchGa4PageMetrics(_range) {
+async function fetchGa4PageMetrics(_range, options = {}) {
   const propertyId = normaliseGa4PropertyId(firstEnv("GA4_PROPERTY_ID", "GOOGLE_ANALYTICS_PROPERTY_ID", "GA_PROPERTY_ID"));
   if (!propertyId) throw new Error("GA4_PROPERTY_ID not found");
 
   const accessToken = await getGoogleAccessToken();
+  const includeDebug = Boolean(options.debug);
 
   const pageReport = await ga4RunReport(propertyId, accessToken, {
     dateRanges: [{ startDate: _range.startDate, endDate: _range.endDate }],
@@ -486,23 +487,46 @@ async function fetchGa4PageMetrics(_range) {
   const pageMap = new Map(pages.map(page => [page.page, page]));
 
   const [calendlyClicks, kajabiClicks] = await Promise.all([
-    fetchGa4OutboundClicks(propertyId, accessToken, _range, "calendly.com"),
-    fetchGa4OutboundClicks(propertyId, accessToken, _range, "kajabi.com"),
+    fetchGa4OutboundClicks(propertyId, accessToken, _range, {
+      label: "Calendly",
+      linkContains: "calendly",
+      eventNameMode: "any",
+      includeDebug,
+    }),
+    fetchGa4OutboundClicks(propertyId, accessToken, _range, {
+      label: "Kajabi",
+      linkContains: "kajabi.com",
+      eventNameMode: "exactClick",
+      includeDebug,
+    }),
   ]);
 
-  for (const row of calendlyClicks) {
+  for (const row of calendlyClicks.rows) {
     const page = pageMap.get(row.page) || { page: row.page, views: 0, activeUsers: 0, viewsPerActiveUser: 0, eventCount: 0, bounceRate: 0, outboundCalendlyClicks: 0, outboundKajabiClicks: 0, brochureDownloads: 0 };
     page.outboundCalendlyClicks += row.clicks;
     pageMap.set(row.page, page);
   }
 
-  for (const row of kajabiClicks) {
+  for (const row of kajabiClicks.rows) {
     const page = pageMap.get(row.page) || { page: row.page, views: 0, activeUsers: 0, viewsPerActiveUser: 0, eventCount: 0, bounceRate: 0, outboundCalendlyClicks: 0, outboundKajabiClicks: 0, brochureDownloads: 0 };
     page.outboundKajabiClicks += row.clicks;
     pageMap.set(row.page, page);
   }
 
-  return Array.from(pageMap.values()).sort((a, b) => Number(b.views || 0) - Number(a.views || 0));
+  const resultPages = Array.from(pageMap.values()).sort((a, b) => Number(b.views || 0) - Number(a.views || 0));
+  return {
+    pages: resultPages,
+    debug: includeDebug ? {
+      outboundClicks: {
+        calendly: calendlyClicks.debug,
+        kajabi: kajabiClicks.debug,
+      },
+      finalTotals: {
+        outboundCalendlyClicks: resultPages.reduce((t, p) => t + Number(p.outboundCalendlyClicks || 0), 0),
+        outboundKajabiClicks: resultPages.reduce((t, p) => t + Number(p.outboundKajabiClicks || 0), 0),
+      },
+    } : null,
+  };
 }
 
 function normaliseGa4PropertyId(value) {
@@ -671,44 +695,123 @@ async function ga4RunReport(propertyId, accessToken, body) {
   return await res.json();
 }
 
-function outboundClickFilter(domain) {
-  return {
-    andGroup: {
-      expressions: [
-        {
-          filter: {
-            fieldName: "eventName",
-            stringFilter: { matchType: "EXACT", value: "click", caseSensitive: false },
-          },
-        },
-        {
-          filter: {
-            fieldName: "linkUrl",
-            stringFilter: { matchType: "CONTAINS", value: domain, caseSensitive: false },
-          },
-        },
-      ],
-    },
-  };
+async function ga4RunReportAll(propertyId, accessToken, body, pageSize = 10000) {
+  const rows = [];
+  let offset = 0;
+  let rowCount = 0;
+
+  do {
+    const report = await ga4RunReport(propertyId, accessToken, {
+      ...body,
+      limit: String(pageSize),
+      offset: String(offset),
+    });
+    const batch = report.rows || [];
+    rows.push(...batch);
+    rowCount = Number(report.rowCount || rowCount || rows.length);
+    offset += batch.length;
+
+    if (!batch.length) break;
+    if (rowCount && offset >= rowCount) break;
+    if (!rowCount && batch.length < pageSize) break;
+  } while (true);
+
+  return { rows, rowCount };
 }
 
-async function fetchGa4OutboundClicks(propertyId, accessToken, range, domain) {
-  const report = await ga4RunReport(propertyId, accessToken, {
-    dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
-    dimensions: [{ name: "pagePath" }, { name: "linkUrl" }],
-    metrics: [{ name: "eventCount" }],
-    dimensionFilter: outboundClickFilter(domain),
-    limit: "1000",
-  });
+function outboundLinkFilter({ linkContains, eventNameMode = "exactClick" }) {
+  const expressions = [
+    {
+      filter: {
+        fieldName: "linkUrl",
+        stringFilter: { matchType: "CONTAINS", value: linkContains, caseSensitive: false },
+      },
+    },
+  ];
 
-  const map = {};
-  for (const row of report.rows || []) {
-    const page = row.dimensionValues && row.dimensionValues[0] ? row.dimensionValues[0].value : "(not set)";
-    const clicks = Number(row.metricValues && row.metricValues[0] ? row.metricValues[0].value : 0);
-    map[page] = (map[page] || 0) + clicks;
+  if (eventNameMode === "exactClick") {
+    expressions.unshift({
+      filter: {
+        fieldName: "eventName",
+        stringFilter: { matchType: "EXACT", value: "click", caseSensitive: false },
+      },
+    });
+  } else if (eventNameMode === "containsClick") {
+    expressions.unshift({
+      filter: {
+        fieldName: "eventName",
+        stringFilter: { matchType: "CONTAINS", value: "click", caseSensitive: false },
+      },
+    });
   }
 
-  return Object.entries(map).map(([page, clicks]) => ({ page, clicks }));
+  return expressions.length === 1 ? expressions[0] : { andGroup: { expressions } };
+}
+
+function addMetric(map, key, value) {
+  const label = key || "(not set)";
+  map[label] = (map[label] || 0) + Number(value || 0);
+}
+
+function metricMapToRows(map) {
+  return Object.entries(map)
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => Number(b.value || 0) - Number(a.value || 0) || String(a.label).localeCompare(String(b.label)));
+}
+
+async function fetchGa4OutboundClicks(propertyId, accessToken, range, config) {
+  const { label, linkContains, eventNameMode = "exactClick", includeDebug = false } = config;
+  const report = await ga4RunReportAll(propertyId, accessToken, {
+    dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
+    dimensions: [{ name: "pagePath" }, { name: "eventName" }, { name: "linkUrl" }],
+    metrics: [{ name: "eventCount" }],
+    dimensionFilter: outboundLinkFilter({ linkContains, eventNameMode }),
+    limit: "10000",
+  });
+
+  const pageMap = {};
+  const eventNameMap = {};
+  const linkUrlMap = {};
+  const samples = [];
+  let totalClicks = 0;
+
+  for (const row of report.rows || []) {
+    const page = row.dimensionValues && row.dimensionValues[0] ? row.dimensionValues[0].value : "(not set)";
+    const eventName = row.dimensionValues && row.dimensionValues[1] ? row.dimensionValues[1].value : "(not set)";
+    const linkUrl = row.dimensionValues && row.dimensionValues[2] ? row.dimensionValues[2].value : "(not set)";
+    const clicks = Number(row.metricValues && row.metricValues[0] ? row.metricValues[0].value : 0);
+    pageMap[page] = (pageMap[page] || 0) + clicks;
+    totalClicks += clicks;
+
+    if (includeDebug) {
+      addMetric(eventNameMap, eventName, clicks);
+      addMetric(linkUrlMap, linkUrl, clicks);
+      if (samples.length < 25) {
+        samples.push({ page, eventName, linkUrl, clicks });
+      }
+    }
+  }
+
+  return {
+    rows: Object.entries(pageMap).map(([page, clicks]) => ({ page, clicks })),
+    debug: includeDebug ? {
+      label,
+      linkContains,
+      eventNameMode,
+      ga4RowCount: Number(report.rowCount || 0),
+      returnedRows: (report.rows || []).length,
+      totalClicks,
+      eventNames: metricMapToRows(eventNameMap),
+      topLinkUrls: metricMapToRows(linkUrlMap).slice(0, 25),
+      sampleRows: samples,
+    } : {
+      label,
+      linkContains,
+      eventNameMode,
+      totalClicks,
+      returnedRows: (report.rows || []).length,
+    },
+  };
 }
 
 async function fetchKajabiPurchases(range) {
@@ -799,15 +902,17 @@ exports.handler = async (event) => {
   const params = new URLSearchParams(event.rawQuery || "");
   const range = getRange(params);
   const calendlyYtdRange = getCalendlyYtdRange(range);
+  const includeGa4Debug = ["1", "true", "ga4"].includes(String(params.get("debug") || "").toLowerCase());
   const warnings = [];
 
-  const [calendlyYtdResult, websitePages, deals, purchases] = await Promise.all([
+  const [calendlyYtdResult, websiteResult, deals, purchases] = await Promise.all([
     fetchCalendlyCalls(calendlyYtdRange, warnings).catch(e => { warnings.push(`Calendly YTD: ${e.message}`); return { calls: [], meta: { error: e.message } }; }),
-    fetchGa4PageMetrics(range).catch(e => { warnings.push(`GA4: ${e.message}`); return []; }),
+    fetchGa4PageMetrics(range, { debug: includeGa4Debug }).catch(e => { warnings.push(`GA4: ${e.message}`); return { pages: [], debug: includeGa4Debug ? { error: e.message } : null }; }),
     fetchHubSpotDeals(range).catch(e => { warnings.push(`HubSpot: ${e.message}`); return []; }),
     fetchKajabiPurchases(range).catch(e => { warnings.push(`Kajabi: ${e.message}`); return []; }),
   ]);
 
+  const websitePages = Array.isArray(websiteResult) ? websiteResult : (websiteResult.pages || []);
   const calls = (calendlyYtdResult.calls || []).filter(call => isDateInRange(call.bookedDate || call.date, range));
   const activeDeals = await fetchHubSpotActiveDeals(calendlyYtdResult.calls || []).catch(e => {
     warnings.push(`HubSpot active deals: ${e.message}`);
@@ -827,6 +932,19 @@ exports.handler = async (event) => {
     pipelineValueSource: "activeDeals",
     dealsWonValueDateField: "closedate",
   };
+  if (!data.meta.ga4) data.meta.ga4 = {};
+  data.meta.ga4.outboundClickMatching = {
+    calendly: {
+      linkUrlContains: "calendly",
+      eventNameFilter: "none",
+      note: "Calendly clicks are counted from GA4 rows where linkUrl contains 'calendly', then summed by pagePath.",
+    },
+    kajabi: {
+      linkUrlContains: "kajabi.com",
+      eventNameFilter: "eventName exactly 'click'",
+    },
+  };
+  if (websiteResult && websiteResult.debug) data.meta.ga4.clickDebug = websiteResult.debug;
   data.charts.callsByCategoryYtd = groupCount(calendlyYtdResult.calls || [], c => c.category);
 
   return {
