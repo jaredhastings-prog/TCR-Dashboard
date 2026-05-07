@@ -2,6 +2,14 @@ const { getStore } = require("@netlify/blobs");
 const { getRange, slugFrom, mapCalendlySlug, normaliseProduct, groupCount, groupSum, emptyData } = require("./_shared");
 
 const HUBSPOT_ACTIVE_DEALS_START_DATE = "2025-01-01";
+const CALENDLY_LINK_URL_CONTAINS = [
+  "calendly",
+  "madeleine-thecoachingroom/",
+  "jay-hedley-thecoachingroom/",
+  "jared-thecoachingroom/",
+  "joseph-thecoachingroom/",
+  "joseph-scott-thecoachingroom/",
+];
 
 async function calendlyFetch(url, token) {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -489,13 +497,13 @@ async function fetchGa4PageMetrics(_range, options = {}) {
   const [calendlyClicks, kajabiClicks] = await Promise.all([
     fetchGa4OutboundClicks(propertyId, accessToken, _range, {
       label: "Calendly",
-      linkContains: "calendly",
-      eventNameMode: "any",
+      linkContainsAny: CALENDLY_LINK_URL_CONTAINS,
+      eventNameMode: "exactClick",
       includeDebug,
     }),
     fetchGa4OutboundClicks(propertyId, accessToken, _range, {
       label: "Kajabi",
-      linkContains: "kajabi.com",
+      linkContainsAny: ["kajabi.com"],
       eventNameMode: "exactClick",
       includeDebug,
     }),
@@ -719,15 +727,21 @@ async function ga4RunReportAll(propertyId, accessToken, body, pageSize = 10000) 
   return { rows, rowCount };
 }
 
-function outboundLinkFilter({ linkContains, eventNameMode = "exactClick" }) {
-  const expressions = [
-    {
-      filter: {
-        fieldName: "linkUrl",
-        stringFilter: { matchType: "CONTAINS", value: linkContains, caseSensitive: false },
-      },
+function containsFilter(fieldName, value) {
+  return {
+    filter: {
+      fieldName,
+      stringFilter: { matchType: "CONTAINS", value, caseSensitive: false },
     },
-  ];
+  };
+}
+
+function outboundLinkFilter({ linkContains, linkContainsAny, eventNameMode = "exactClick" }) {
+  const containsValues = Array.from(new Set([...(linkContainsAny || []), linkContains].filter(Boolean)));
+  const linkExpressions = containsValues.map(value => containsFilter("linkUrl", value));
+  const expressions = linkExpressions.length === 1
+    ? [linkExpressions[0]]
+    : [{ orGroup: { expressions: linkExpressions } }];
 
   if (eventNameMode === "exactClick") {
     expressions.unshift({
@@ -760,12 +774,13 @@ function metricMapToRows(map) {
 }
 
 async function fetchGa4OutboundClicks(propertyId, accessToken, range, config) {
-  const { label, linkContains, eventNameMode = "exactClick", includeDebug = false } = config;
+  const { label, linkContains, linkContainsAny, eventNameMode = "exactClick", includeDebug = false } = config;
+  const containsValues = Array.from(new Set([...(linkContainsAny || []), linkContains].filter(Boolean)));
   const report = await ga4RunReportAll(propertyId, accessToken, {
     dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
     dimensions: [{ name: "pagePath" }, { name: "eventName" }, { name: "linkUrl" }],
     metrics: [{ name: "eventCount" }],
-    dimensionFilter: outboundLinkFilter({ linkContains, eventNameMode }),
+    dimensionFilter: outboundLinkFilter({ linkContainsAny: containsValues, eventNameMode }),
     limit: "10000",
   });
 
@@ -796,7 +811,7 @@ async function fetchGa4OutboundClicks(propertyId, accessToken, range, config) {
     rows: Object.entries(pageMap).map(([page, clicks]) => ({ page, clicks })),
     debug: includeDebug ? {
       label,
-      linkContains,
+      linkContainsAny: containsValues,
       eventNameMode,
       ga4RowCount: Number(report.rowCount || 0),
       returnedRows: (report.rows || []).length,
@@ -806,7 +821,7 @@ async function fetchGa4OutboundClicks(propertyId, accessToken, range, config) {
       sampleRows: samples,
     } : {
       label,
-      linkContains,
+      linkContainsAny: containsValues,
       eventNameMode,
       totalClicks,
       returnedRows: (report.rows || []).length,
@@ -935,9 +950,9 @@ exports.handler = async (event) => {
   if (!data.meta.ga4) data.meta.ga4 = {};
   data.meta.ga4.outboundClickMatching = {
     calendly: {
-      linkUrlContains: "calendly",
-      eventNameFilter: "none",
-      note: "Calendly clicks are counted from GA4 rows where linkUrl contains 'calendly', then summed by pagePath.",
+      linkUrlContainsAny: CALENDLY_LINK_URL_CONTAINS,
+      eventNameFilter: "eventName exactly 'click'",
+      note: "Calendly clicks are counted from GA4 click rows where linkUrl contains a Calendly URL/domain or known TCR Calendly account path, then summed by pagePath.",
     },
     kajabi: {
       linkUrlContains: "kajabi.com",
