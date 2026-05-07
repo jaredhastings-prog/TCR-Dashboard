@@ -9,6 +9,9 @@
     body { margin:0; font-family: Inter, Arial, sans-serif; background:#f6f7fb; color:#111827; }
     .dashboard { max-width:1400px; margin:0 auto; padding:32px; }
     .header { margin-bottom:20px; }
+    .brand-header { display:flex; align-items:center; gap:24px; min-width:0; }
+    .brand-logo { width:260px; max-width:34vw; height:auto; display:block; flex:0 0 auto; }
+    .brand-copy { min-width:0; }
     .header h1 { margin:0; font-size:32px; }
     .header p { margin:8px 0 0; color:#6b7280; }
     .status { padding:12px 16px; border-radius:14px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:14px; margin-bottom:20px; display:none; }
@@ -54,14 +57,19 @@
     th,td { padding:12px; border-bottom:1px solid #e5e7eb; text-align:left; }
     th { color:#6b7280; font-weight:600; }
     @media (max-width:1100px){ .kpi-grid{grid-template-columns:repeat(3,1fr);} .grid-3{grid-template-columns:1fr;} }
-    @media (max-width:800px){ .dashboard{padding:20px;} .kpi-grid,.grid-2{grid-template-columns:1fr;} }
+    @media (max-width:800px){ .dashboard{padding:20px;} .brand-header{align-items:flex-start; flex-direction:column; gap:14px;} .brand-logo{width:220px; max-width:76vw;} .kpi-grid,.grid-2{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
   <main class="dashboard">
     <header class="header">
-      <h1>TCR Business Dashboard</h1>
-      <p>Live dashboard. Version: TCR_V27_KAJABI_BLOBS_FIX.</p>
+      <div class="brand-header">
+        <img class="brand-logo" src="assets/coaching-room-logo.png" alt="The Coaching Room" />
+        <div class="brand-copy">
+          <h1>TCR Business Dashboard</h1>
+          <p>Live dashboard. Version: TCR_V27_KAJABI_BLOBS_FIX.</p>
+        </div>
+      </div>
     </header>
 
     <div id="status" class="status"></div>
@@ -106,13 +114,16 @@
         <summary><span class="accordion-title">Calendly</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
           <section class="grid-3">
-            <div class="card"><h3>Calls by Category/Page (This Month)</h3><div id="callsByCategoryList" class="count-list"></div></div>
-            <div class="card"><h3>Calls by Category/Page (Total since Nov 1, 2025)</h3><div id="callsByCategoryYtdList" class="count-list"></div></div>
+            <div class="card"><h3>Calls Booked by Category/Page (This Month)</h3><div id="callsByCategoryList" class="count-list"></div></div>
+            <div class="card"><h3>Calls Booked by Category/Page (Total Since Nov 1, 2025)</h3><div id="callsByCategoryYtdList" class="count-list"></div></div>
             <div class="card">
-              <h3>Calls to Sales Count</h3>
-              <div id="callSalesCount" class="metric-big">—</div>
-              <div id="callSalesRatio" class="metric-sub">—</div>
-              <div id="callSalesNote" class="card-note">HubSpot deal-name matches to call booking names</div>
+              <h3>Sales Calls Performance</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Team Member</th><th>Calls Had This Month</th><th>Conversion to deals</th><th>Won</th></tr></thead>
+                  <tbody id="salesCallsPerformanceTable"></tbody>
+                </table>
+              </div>
             </div>
           </section>
 
@@ -130,8 +141,24 @@
         <summary><span class="accordion-title">Sales Pipeline</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
           <section class="grid-2">
-            <div class="card"><h3>Deals by Stage</h3><canvas id="dealsByStage"></canvas></div>
-            <div class="card"><h3>Sales by Team Member</h3><canvas id="salesByTeam"></canvas></div>
+            <div class="card">
+              <h3>Deals by Stage</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Stage</th><th>Deals</th></tr></thead>
+                  <tbody id="dealsByStageTable"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Sales Won by Team Member</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Name</th><th>Count</th></tr></thead>
+                  <tbody id="salesWonByTeamTable"></tbody>
+                </table>
+              </div>
+            </div>
           </section>
           <section class="card" style="margin-top:20px;">
             <h3>Active Deals</h3>
@@ -180,6 +207,7 @@
   <script>
     let charts = {};
     const chartDefaults = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ boxWidth:12, font:{ size:12 }}}} };
+    const calendlyTeamMembers = ["Madeleine Robinson", "Joseph Scott", "Jay Hedley"];
     const number = n => Number(n || 0).toLocaleString();
     const currency = n => new Intl.NumberFormat("en-AU", { style:"currency", currency:"AUD", maximumFractionDigits:0 }).format(Number(n || 0));
 
@@ -208,13 +236,37 @@
       `).join("") : `<div class="count-row"><span class="count-label">No calls</span><span class="count-value">0</span></div>`;
     }
 
-    function renderCallSales(callSales) {
-      const total = Number(callSales?.totalCalls || 0);
-      const matched = Number(callSales?.matchedCalls || 0);
-      const rate = Number(callSales?.conversionRate || 0);
-      document.getElementById("callSalesCount").textContent = `${number(matched)} / ${number(total)}`;
-      document.getElementById("callSalesRatio").textContent = `${rate}% call-to-sales opportunity ratio`;
-      document.getElementById("callSalesNote").textContent = `${number(callSales?.unmatchedCalls || 0)} calls without a matching HubSpot deal name`;
+    function renderTwoColumnTable(id, rows, emptyLabel) {
+      const items = [...(rows || [])].sort((a, b) => Number(b.value || 0) - Number(a.value || 0) || String(a.label || "").localeCompare(String(b.label || "")));
+      document.getElementById(id).innerHTML = items.length ? items.map(row => `
+        <tr><td>${escapeHtml(row.label || "Unknown")}</td><td>${number(row.value)}</td></tr>
+      `).join("") : `<tr><td>${escapeHtml(emptyLabel)}</td><td>0</td></tr>`;
+    }
+
+    function buildSalesCallPerformanceRows(calls) {
+      const counts = new Map(calendlyTeamMembers.map(member => [member, 0]));
+      for (const call of calls || []) {
+        const teamMember = call.teamMember || "Unknown";
+        counts.set(teamMember, (counts.get(teamMember) || 0) + 1);
+      }
+      return Array.from(counts.entries()).map(([teamMember, calls]) => ({
+        teamMember,
+        calls,
+        conversionToDeals: "Needs HubSpot integration",
+        won: ""
+      }));
+    }
+
+    function renderSalesCallPerformance(rows) {
+      const items = rows || [];
+      document.getElementById("salesCallsPerformanceTable").innerHTML = items.length ? items.map(row => `
+        <tr>
+          <td>${escapeHtml(row.teamMember || "Unknown")}</td>
+          <td>${number(row.calls)}</td>
+          <td>${escapeHtml(row.conversionToDeals || "Needs HubSpot integration")}</td>
+          <td>${row.won === undefined || row.won === null ? "" : escapeHtml(row.won)}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="4">No Calendly team members found</td></tr>`;
     }
 
     function escapeHtml(value) {
@@ -278,11 +330,11 @@
         const callsByCategory = data.charts.callsByCategory || rowsBy(data.calls, "category");
         renderCountList("callsByCategoryList", callsByCategory);
         renderCountList("callsByCategoryYtdList", data.charts.callsByCategoryYtd || []);
-        renderCallSales(data.callSales);
+        renderSalesCallPerformance(buildSalesCallPerformanceRows(data.calls || []));
         const dealsByStage = data.charts.dealsByStage || rowsBy(data.deals, "stage");
-        renderChart("dealsByStage", "bar", dealsByStage.map(x => x.label), dealsByStage.map(x => x.value), "Deals");
-        const salesByTeam = data.charts.salesByTeam || rowsBy(data.deals, "owner", "amount");
-        renderChart("salesByTeam", "bar", salesByTeam.map(x => x.label), salesByTeam.map(x => x.value), "Sales Value");
+        renderTwoColumnTable("dealsByStageTable", dealsByStage, "No deals");
+        const salesWonByTeam = rowsBy((data.deals || []).filter(deal => deal.stage === "Closed Won"), "owner");
+        renderTwoColumnTable("salesWonByTeamTable", salesWonByTeam, "No won sales");
         renderActiveDeals(data.activeDeals || []);
         const revenueByProduct = data.charts.revenueByProduct || rowsBy(data.purchases, "product", "amount");
         renderChart("revenueByProduct", "doughnut", revenueByProduct.map(x => x.label), revenueByProduct.map(x => x.value), "Revenue");
