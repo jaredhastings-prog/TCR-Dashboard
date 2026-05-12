@@ -36,6 +36,7 @@
     .count-label { color:#374151; font-size:14px; font-weight:600; line-height:1.3; }
     .count-value { color:#111827; font-size:20px; font-weight:800; }
     .card-note { color:#6b7280; font-size:12px; margin-top:6px; }
+    .integration-placeholder { color:#dc2626; font-weight:700; }
     .metric-big { font-size:44px; font-weight:800; margin-top:26px; }
     .metric-sub { color:#374151; font-size:16px; font-weight:700; margin-top:10px; }
     .accordion { display:grid; gap:14px; margin-top:8px; }
@@ -138,6 +139,36 @@
       </details>
 
       <details class="accordion-panel">
+        <summary><span class="accordion-title">Pathways</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="grid-2">
+            <div class="card">
+              <h3>Revenue Attributed to Pathways</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Sales Amount</th></tr></thead>
+                  <tbody><tr><td>$62,912</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Pathways Sold</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Pathway</th><th>Sold</th></tr></thead>
+                  <tbody>
+                    <tr><td>Self-Development</td><td>5</td></tr>
+                    <tr><td>Coach Training</td><td>1</td></tr>
+                    <tr><td>Executive Support</td><td>3</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
         <summary><span class="accordion-title">Sales Pipeline</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
           <section class="grid-2">
@@ -208,6 +239,7 @@
     let charts = {};
     const chartDefaults = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ boxWidth:12, font:{ size:12 }}}} };
     const calendlyTeamMembers = ["Madeleine Robinson", "Joseph Scott", "Jay Hedley"];
+    const HUBSPOT_PLACEHOLDER = "Needs HubSpot Integration";
     const number = n => Number(n || 0).toLocaleString();
     const currency = n => new Intl.NumberFormat("en-AU", { style:"currency", currency:"AUD", maximumFractionDigits:0 }).format(Number(n || 0));
 
@@ -243,6 +275,12 @@
       `).join("") : `<tr><td>${escapeHtml(emptyLabel)}</td><td>0</td></tr>`;
     }
 
+    function renderHubSpotPlaceholder(value = HUBSPOT_PLACEHOLDER) {
+      return String(value || "") === HUBSPOT_PLACEHOLDER
+        ? `<span class="integration-placeholder">${HUBSPOT_PLACEHOLDER}</span>`
+        : escapeHtml(value);
+    }
+
     function buildSalesCallPerformanceRows(calls) {
       const counts = new Map(calendlyTeamMembers.map(member => [member, 0]));
       for (const call of calls || []) {
@@ -252,7 +290,7 @@
       return Array.from(counts.entries()).map(([teamMember, calls]) => ({
         teamMember,
         calls,
-        conversionToDeals: "Needs HubSpot integration",
+        conversionToDeals: HUBSPOT_PLACEHOLDER,
         won: ""
       }));
     }
@@ -263,7 +301,7 @@
         <tr>
           <td>${escapeHtml(row.teamMember || "Unknown")}</td>
           <td>${number(row.calls)}</td>
-          <td>${escapeHtml(row.conversionToDeals || "Needs HubSpot integration")}</td>
+          <td>${renderHubSpotPlaceholder(row.conversionToDeals || HUBSPOT_PLACEHOLDER)}</td>
           <td>${row.won === undefined || row.won === null ? "" : escapeHtml(row.won)}</td>
         </tr>
       `).join("") : `<tr><td colspan="4">No Calendly team members found</td></tr>`;
