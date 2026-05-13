@@ -90,10 +90,10 @@
     <section class="kpi-grid">
       <div class="card"><div class="kpi-title">Calls Booked</div><div id="kpiCalls" class="kpi-value">—</div><div class="kpi-note">Mapped sales calls only</div></div>
       <div class="card"><div class="kpi-title">Website Visitors</div><div id="kpiVisitors" class="kpi-value">—</div><div class="kpi-note">GA4 active users</div></div>
-      <div class="card"><div class="kpi-title">Conversion Rate</div><div id="kpiConversion" class="kpi-value">—</div><div class="kpi-note">Bookings + purchases</div></div>
-      <div class="card"><div class="kpi-title">NLP Brochure Downloads</div><div id="kpiBrochure" class="kpi-value">—</div><div class="kpi-note">Manual/mock until tracked</div></div>
+      <div class="card"><div class="kpi-title">Conversion Rate</div><div id="kpiConversion" class="kpi-value integration-placeholder">Awaiting Integration</div><div class="kpi-note">Bookings + purchases</div></div>
+      <div class="card"><div class="kpi-title">NLP Brochure Downloads</div><div id="kpiBrochure" class="kpi-value integration-placeholder">Awaiting Integration</div><div class="kpi-note">Manual/mock until tracked</div></div>
       <div class="card"><div class="kpi-title">Pipeline Value</div><div id="kpiPipeline" class="kpi-value">—</div><div class="kpi-note">Active/open since Jan 1, 2025</div></div>
-      <div class="card"><div class="kpi-title">Revenue</div><div id="kpiRevenue" class="kpi-value">—</div><div class="kpi-note">Kajabi purchases</div></div>
+      <div class="card"><div class="kpi-title">Revenue (Kajabi)</div><div id="kpiRevenue" class="kpi-value integration-placeholder">Awaiting Integration</div><div class="kpi-note">Online purchases + RoomMates subscriptions</div></div>
       <div class="card"><div class="kpi-title">Deals Won</div><div id="kpiDealsWon" class="kpi-value">—</div><div id="kpiDealsWonValue" class="kpi-subvalue">—</div><div class="kpi-note">HubSpot closed won</div></div>
       <div class="card"><div class="kpi-title">Referrals</div><div id="kpiReferrals" class="kpi-value">—</div><div class="kpi-note">Referral Factory pending</div></div>
     </section>
@@ -240,6 +240,7 @@
     const chartDefaults = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ boxWidth:12, font:{ size:12 }}}} };
     const calendlyTeamMembers = ["Madeleine Robinson", "Joseph Scott", "Jay Hedley"];
     const HUBSPOT_PLACEHOLDER = "Needs HubSpot Integration";
+    const AWAITING_INTEGRATION = "Awaiting Integration";
     const number = n => Number(n || 0).toLocaleString();
     const currency = n => new Intl.NumberFormat("en-AU", { style:"currency", currency:"AUD", maximumFractionDigits:0 }).format(Number(n || 0));
 
@@ -348,10 +349,10 @@
 
         document.getElementById("kpiCalls").textContent = number(data.kpis.callsBooked);
         document.getElementById("kpiVisitors").textContent = number(data.kpis.websiteVisitors);
-        document.getElementById("kpiConversion").textContent = `${data.kpis.conversionRate}%`;
-        document.getElementById("kpiBrochure").textContent = number(data.kpis.brochureDownloads);
+        document.getElementById("kpiConversion").textContent = AWAITING_INTEGRATION;
+        document.getElementById("kpiBrochure").textContent = AWAITING_INTEGRATION;
         document.getElementById("kpiPipeline").textContent = currency(data.kpis.pipelineValue);
-        document.getElementById("kpiRevenue").textContent = currency(data.kpis.revenue);
+        document.getElementById("kpiRevenue").textContent = AWAITING_INTEGRATION;
         document.getElementById("kpiDealsWon").textContent = number(data.kpis.dealsWon);
         document.getElementById("kpiDealsWonValue").textContent = `${currency(data.kpis.dealsWonValue)} won value`;
         document.getElementById("kpiReferrals").textContent = number(data.kpis.referrals);
