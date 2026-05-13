@@ -6,7 +6,9 @@
   <title>TCR Business Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { margin:0; font-family: Inter, Arial, sans-serif; background:#f6f7fb; color:#111827; }
+    *, *::before, *::after { box-sizing:border-box; }
+    html { -webkit-text-size-adjust:100%; }
+    body { margin:0; font-family: Inter, Arial, sans-serif; background:#f6f7fb; color:#111827; overflow-x:hidden; }
     .dashboard { max-width:1400px; margin:0 auto; padding:32px; }
     .header { margin-bottom:20px; }
     .brand-header { display:flex; align-items:center; gap:24px; min-width:0; }
@@ -15,16 +17,16 @@
     .header h1 { margin:0; font-size:32px; }
     .header p { margin:8px 0 0; color:#6b7280; }
     .status { padding:12px 16px; border-radius:14px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:14px; margin-bottom:20px; display:none; }
-    .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:20px 0 28px; background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:16px; box-shadow:0 8px 24px rgba(15,23,42,.04); }
+    .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:20px 0 28px; background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:16px; box-shadow:0 8px 24px rgba(15,23,42,.04); min-width:0; }
     .controls label { font-size:13px; color:#6b7280; font-weight:600; }
     .controls select,.controls input { border:1px solid #d1d5db; border-radius:12px; padding:10px 12px; font-size:14px; background:#fff; }
     .date-summary { margin-left:auto; font-size:14px; color:#374151; font-weight:600; }
     .custom-dates { display:none; gap:12px; align-items:center; flex-wrap:wrap; }
     .custom-dates.active { display:flex; }
     .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
-    .card { background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:20px; box-shadow:0 8px 24px rgba(15,23,42,.04); }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:20px; box-shadow:0 8px 24px rgba(15,23,42,.04); min-width:0; }
     .kpi-title { font-size:13px; color:#6b7280; margin-bottom:8px; }
-    .kpi-value { font-size:26px; font-weight:700; }
+    .kpi-value { font-size:26px; font-weight:700; line-height:1.15; overflow-wrap:anywhere; }
     .kpi-subvalue { font-size:13px; font-weight:700; color:#374151; margin-top:4px; }
     .kpi-note { font-size:12px; color:#10b981; margin-top:8px; }
     .section-title { font-size:22px; margin:32px 0 16px; }
@@ -40,25 +42,65 @@
     .metric-big { font-size:44px; font-weight:800; margin-top:26px; }
     .metric-sub { color:#374151; font-size:16px; font-weight:700; margin-top:10px; }
     .accordion { display:grid; gap:14px; margin-top:8px; }
-    .accordion-panel { background:#fff; border:1px solid #e5e7eb; border-radius:20px; box-shadow:0 8px 24px rgba(15,23,42,.04); overflow:hidden; }
+    .accordion-panel { background:#fff; border:1px solid #e5e7eb; border-radius:20px; box-shadow:0 8px 24px rgba(15,23,42,.04); overflow:hidden; min-width:0; }
     .accordion-panel > summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px 24px; font-size:22px; font-weight:800; }
     .accordion-panel > summary::-webkit-details-marker { display:none; }
     .accordion-title { display:flex; align-items:center; gap:12px; }
     .accordion-icon { width:30px; height:30px; border:1px solid #d1d5db; border-radius:999px; display:grid; place-items:center; font-size:20px; line-height:1; color:#111827; flex:0 0 auto; }
     .accordion-icon::before { content:"+"; transform:translateY(-1px); }
     .accordion-panel[open] .accordion-icon::before { content:"-"; transform:translateY(-2px); }
-    .accordion-content { border-top:1px solid #e5e7eb; padding:20px; }
+    .accordion-content { border-top:1px solid #e5e7eb; padding:20px; min-width:0; }
     .accordion-content > .card { box-shadow:none; }
     .accordion-content > .card:first-child { margin-top:0; }
     .accordion-content > .card:last-child { margin-bottom:0; }
     .accordion-content .card { border-radius:16px; }
     canvas { width:100%!important; height:300px!important; }
-    .table-scroll { overflow-x:auto; }
+    .table-scroll { max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
     table { width:100%; border-collapse:collapse; font-size:14px; }
     th,td { padding:12px; border-bottom:1px solid #e5e7eb; text-align:left; }
     th { color:#6b7280; font-weight:600; }
     @media (max-width:1100px){ .kpi-grid{grid-template-columns:repeat(3,1fr);} .grid-3{grid-template-columns:1fr;} }
     @media (max-width:800px){ .dashboard{padding:20px;} .brand-header{align-items:flex-start; flex-direction:column; gap:14px;} .brand-logo{width:220px; max-width:76vw;} .kpi-grid,.grid-2{grid-template-columns:1fr;} }
+    @media (max-width:640px){
+      .dashboard{padding:14px;}
+      .header{margin-bottom:16px;}
+      .brand-logo{width:180px; max-width:70vw;}
+      .header h1{font-size:26px; line-height:1.15;}
+      .header p{font-size:14px; line-height:1.4;}
+      .controls{align-items:stretch; gap:10px; padding:14px; border-radius:16px; margin:16px 0 20px;}
+      .controls label,.date-summary{width:100%; margin-left:0;}
+      .controls select,.controls input,.controls button{width:100%; min-height:44px;}
+      .kpi-grid{grid-template-columns:1fr; gap:12px; margin-bottom:20px;}
+      .card{padding:16px; border-radius:16px;}
+      .kpi-title{font-size:12px; line-height:1.3;}
+      .kpi-value{font-size:24px;}
+      .grid-2,.grid-3{grid-template-columns:1fr; gap:14px;}
+      .accordion{gap:10px;}
+      .accordion-panel{border-radius:16px;}
+      .accordion-panel > summary{padding:16px; min-height:56px; font-size:18px; line-height:1.2;}
+      .accordion-icon{width:34px; height:34px;}
+      .accordion-content{padding:12px;}
+      .accordion-content .card{border-radius:14px;}
+      canvas{height:260px!important;}
+      table{font-size:13px;}
+      th,td{padding:10px; white-space:nowrap;}
+      .table-scroll{padding-bottom:4px;}
+      .table-scroll table{min-width:640px;}
+      .table-scroll.wide-table table{min-width:760px;}
+      .grid-2 .table-scroll table{min-width:0;}
+      .count-row{align-items:flex-start;}
+      .count-value{font-size:18px;}
+    }
+    @media (max-width:420px){
+      .dashboard{padding:10px;}
+      .brand-logo{width:160px;}
+      .header h1{font-size:24px;}
+      .card{padding:14px;}
+      .accordion-panel > summary{padding:14px; font-size:17px;}
+      .accordion-content{padding:10px;}
+      th,td{padding:9px;}
+      .kpi-note{line-height:1.35;}
+    }
   </style>
 </head>
 <body>
@@ -103,10 +145,12 @@
         <summary><span class="accordion-title">Website Performance</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
           <section class="card">
-            <table>
-              <thead><tr><th>Page</th><th>Views</th><th>Active Users</th><th>Views / Active User</th><th>Event Count</th><th>Bounce Rate</th><th>Calendly Clicks</th><th>Kajabi Clicks</th><th>NLP Brochure Downloads</th></tr></thead>
-              <tbody id="websiteTable"></tbody>
-            </table>
+            <div class="table-scroll wide-table">
+              <table>
+                <thead><tr><th>Page</th><th>Views</th><th>Active Users</th><th>Views / Active User</th><th>Event Count</th><th>Bounce Rate</th><th>Calendly Clicks</th><th>Kajabi Clicks</th><th>NLP Brochure Downloads</th></tr></thead>
+                <tbody id="websiteTable"></tbody>
+              </table>
+            </div>
           </section>
         </div>
       </details>
@@ -130,10 +174,12 @@
 
           <section class="card" style="margin-top:20px;">
             <h3>Calendly Booking Detail</h3>
-            <table>
-              <thead><tr><th>Name</th><th>Team Member</th><th>Category/Page</th><th>Sub-Page</th><th>Sub-sub page</th><th>Date Booked</th></tr></thead>
-              <tbody id="callsTable"></tbody>
-            </table>
+            <div class="table-scroll wide-table">
+              <table>
+                <thead><tr><th>Name</th><th>Team Member</th><th>Category/Page</th><th>Sub-Page</th><th>Sub-sub page</th><th>Date Booked</th></tr></thead>
+                <tbody id="callsTable"></tbody>
+              </table>
+            </div>
           </section>
         </div>
       </details>
@@ -193,7 +239,7 @@
           </section>
           <section class="card" style="margin-top:20px;">
             <h3>Active Deals</h3>
-            <div class="table-scroll">
+            <div class="table-scroll wide-table">
               <table>
                 <thead><tr><th>Deal owner</th><th>Deal description</th><th>Deal value</th><th>Expected close date</th><th>Discovery call source</th></tr></thead>
                 <tbody id="activeDealsTable"></tbody>
