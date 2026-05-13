@@ -422,7 +422,7 @@
         renderActiveDeals(data.activeDeals || []);
         const revenueByProduct = data.charts.revenueByProduct || rowsBy(data.purchases, "product", "amount");
         renderChart("revenueByProduct", "doughnut", revenueByProduct.map(x => x.label), revenueByProduct.map(x => x.value), "Revenue");
-        const brochureByPage = data.charts.brochDownloadsByPage || [];
+        const brochureByPage = data.charts.brochureDownloadsByPage || [];
         renderChart("brochureDownloadsByPage", "bar", brochureByPage.map(x => x.label), brochureByPage.map(x => x.value), "Downloads");
 
         if (data.meta?.warnings?.length) {
