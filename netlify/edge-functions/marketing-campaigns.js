@@ -33,6 +33,17 @@ const MARKETING_CAMPAIGNS_SECTION = `      <details class="accordion-panel">
         </div>
       </details>`;
 
+const htmlResponse = (body, response) => {
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+};
+
 export default async (_request, context) => {
   const response = await context.next();
   const contentType = response.headers.get("content-type") || "";
@@ -44,14 +55,14 @@ export default async (_request, context) => {
   const html = await response.text();
 
   if (html.includes("Marketing Campaigns")) {
-    return new Response(html, response);
+    return htmlResponse(html, response);
   }
 
   const salesPipelineMarker = `      <details class="accordion-panel">
         <summary><span class="accordion-title">Sales Pipeline</span><span class="accordion-icon" aria-hidden="true"></span></summary>`;
 
   if (!html.includes(salesPipelineMarker)) {
-    return new Response(html, response);
+    return htmlResponse(html, response);
   }
 
   const nextHtml = html.replace(
@@ -59,5 +70,5 @@ export default async (_request, context) => {
     `${MARKETING_CAMPAIGNS_SECTION}\n\n${salesPipelineMarker}`
   );
 
-  return new Response(nextHtml, response);
+  return htmlResponse(nextHtml, response);
 };
