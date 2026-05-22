@@ -22,19 +22,62 @@ const calendlyEventMap = {
   "discovery-call-integral-leadership-training": { category: "Executive Support Pathway", subCategory: "ELT Development", subSubCategory: "Integral+ Leadership Training" },
   "discovery-call-the-burnt-out-performer": { category: "Executive Support Pathway", subCategory: "Seasoned Executive", subSubCategory: "The Burnt-Out Performer" },
   "discovery-call-the-disconnected-achiever": { category: "Executive Support Pathway", subCategory: "Seasoned Executive", subSubCategory: "The Disconnected Achiever" },
-  "discovery-call-the-systems-strategist": { category: "Executive Support Pathway", subCategory: "Seasoned Executive", subSubCategory: "The System Strategist" },
-  "discovery-call-the-performance-driven-transitioner": { category: "Executive Support Pathway", subCategory: "New Executive", subSubCategory: "The Performance-Driven Transitioner" },
-  "discovery-call-the-performance-driver-transitioner": { category: "Executive Support Pathway", subCategory: "New Executive", subSubCategory: "The Performance-Driven Transitioner" },
-  "discovery-call-the-role-rising-performer": { category: "Executive Support Pathway", subCategory: "New Executive", subSubCategory: "The Role-Rising Reformer" },
-  "discovery-call-the-role-rising-reformer": { category: "Executive Support Pathway", subCategory: "New Executive", subSubCategory: "The Role-Rising Reformer" },
-  "discovery-call-the-self-doubting-performer": { category: "Executive Support Pathway", subCategory: "Aspiring Executive", subSubCategory: "The Self Doubting Performer" },
+  "discovery-call-the-systems-strategist": { category: "Executive Support Pathway", subCategory: "Seasoned Executive", subSubCategory: "The Systems Strategist" },
+  "discovery-call-the-performance-driven-transitioner": { category: "Executive Support Pathway", subCategory: "New Executive", subSubCategory: "The Performance Driven Transitioner" },
+  "discovery-call-the-performance-driver-transitioner": { category: "Executive Support Pathway", subCategory: "New Executive", subSubCategory: "The Performance Driven Transitioner" },
+  "discovery-call-the-role-rising-performer": { category: "Executive Support Pathway", subCategory: "New Executive", subSubCategory: "The Role Rising Performer" },
+  "discovery-call-the-role-rising-reformer": { category: "Executive Support Pathway", subCategory: "New Executive", subSubCategory: "The Role Rising Performer" },
+  "discovery-call-the-self-doubting-performer": { category: "Executive Support Pathway", subCategory: "Aspiring Executive", subSubCategory: "The Self-Doubting Performer" },
   "discovery-call-the-emergent-executive": { category: "Executive Support Pathway", subCategory: "Aspiring Executive", subSubCategory: "The Emergent Executive" },
-  "discovery-call-the-over-burdened-change-agent": { category: "Executive Support Pathway", subCategory: "Aspiring Executive", subSubCategory: "The Overburdened Change Agent" },
-  "discovery-call-the-overburdened-change-agent": { category: "Executive Support Pathway", subCategory: "Aspiring Executive", subSubCategory: "The Overburdened Change Agent" },
+  "discovery-call-the-over-burdened-change-agent": { category: "Executive Support Pathway", subCategory: "Aspiring Executive", subSubCategory: "The Over Burdened Change Agent" },
+  "discovery-call-the-overburdened-change-agent": { category: "Executive Support Pathway", subCategory: "Aspiring Executive", subSubCategory: "The Over Burdened Change Agent" },
   "discovery-call-the-aspiring-executive": { category: "Executive Support Pathway", subCategory: "Aspiring Executive" },
   "discovery-call-aspiring-executive": { category: "Executive Support Pathway", subCategory: "Aspiring Executive" },
   "discovery-call-the-empathetic-overextender": { category: "Executive Support Pathway", subCategory: "New Executive", subSubCategory: "The Empathetic Overextender" },
   "discovery-call-the-empathic-overextender": { category: "Executive Support Pathway", subCategory: "New Executive", subSubCategory: "The Empathetic Overextender" }
+};
+
+const EXECUTIVE_SUPPORT_PATHWAY = "Executive Support Pathway";
+
+const executiveSupportBreakdownCategories = [
+  "Executive Pathway",
+  "ELT Pathway",
+  "Developmental ELT Coaching",
+  "Corporate NLP Training",
+  "Integral+ Leadership Training",
+  "The Burnt-Out Performer",
+  "The Emergent Executive",
+  "The Systems Strategist",
+  "The Self-Doubting Performer",
+  "The Aspiring Executive",
+  "The Empathetic Overextender",
+  "The Over Burdened Change Agent",
+  "The Performance Driven Transitioner",
+  "The Role Rising Performer",
+  "The Disconnected Achiever",
+];
+
+const executiveSupportBreakdownBySlug = {
+  "discovery-call-executive-pathway": "Executive Pathway",
+  "discovery-call-elt-pathway": "ELT Pathway",
+  "discovery-call-developmental-elt-coaching": "Developmental ELT Coaching",
+  "discovery-call-corporate-nlp-training": "Corporate NLP Training",
+  "discovery-call-integral-leadership-training": "Integral+ Leadership Training",
+  "discovery-call-the-burnt-out-performer": "The Burnt-Out Performer",
+  "discovery-call-the-emergent-executive": "The Emergent Executive",
+  "discovery-call-the-systems-strategist": "The Systems Strategist",
+  "discovery-call-the-self-doubting-performer": "The Self-Doubting Performer",
+  "discovery-call-the-aspiring-executive": "The Aspiring Executive",
+  "discovery-call-aspiring-executive": "The Aspiring Executive",
+  "discovery-call-the-empathetic-overextender": "The Empathetic Overextender",
+  "discovery-call-the-empathic-overextender": "The Empathetic Overextender",
+  "discovery-call-the-over-burdened-change-agent": "The Over Burdened Change Agent",
+  "discovery-call-the-overburdened-change-agent": "The Over Burdened Change Agent",
+  "discovery-call-the-performance-driven-transitioner": "The Performance Driven Transitioner",
+  "discovery-call-the-performance-driver-transitioner": "The Performance Driven Transitioner",
+  "discovery-call-the-role-rising-performer": "The Role Rising Performer",
+  "discovery-call-the-role-rising-reformer": "The Role Rising Performer",
+  "discovery-call-the-disconnected-achiever": "The Disconnected Achiever",
 };
 
 function dateOnly(d) { return d.toISOString().slice(0, 10); }
@@ -74,13 +117,47 @@ function normaliseProduct(value) {
   return value || "Unknown";
 }
 
+function getExecutiveSupportBreakdownLabel(call) {
+  if (!call || call.category !== EXECUTIVE_SUPPORT_PATHWAY) return null;
+  if (call.eventSlug && executiveSupportBreakdownBySlug[call.eventSlug]) {
+    return executiveSupportBreakdownBySlug[call.eventSlug];
+  }
+  return call.subSubCategory || call.subCategory || "Other Executive Support";
+}
+
+function buildExecutiveSupportBreakdown(items) {
+  const counts = new Map(executiveSupportBreakdownCategories.map(label => [label, 0]));
+  const extraLabels = [];
+
+  for (const item of items || []) {
+    const label = getExecutiveSupportBreakdownLabel(item);
+    if (!label) continue;
+    if (!counts.has(label)) {
+      counts.set(label, 0);
+      extraLabels.push(label);
+    }
+    counts.set(label, counts.get(label) + 1);
+  }
+
+  return [...executiveSupportBreakdownCategories, ...extraLabels].map(label => ({
+    label,
+    value: counts.get(label) || 0,
+  }));
+}
+
 function groupCount(items, labelFn) {
   const map = {};
   for (const item of items || []) {
     const label = labelFn(item) || "Unknown";
     map[label] = (map[label] || 0) + 1;
   }
-  return Object.entries(map).map(([label, value]) => ({ label, value }));
+
+  const executiveSupportBreakdown = buildExecutiveSupportBreakdown(items);
+  return Object.entries(map).map(([label, value]) => ({
+    label,
+    value,
+    ...(label === EXECUTIVE_SUPPORT_PATHWAY ? { breakdown: executiveSupportBreakdown } : {}),
+  }));
 }
 
 function groupSum(items, labelFn, valueFn) {
