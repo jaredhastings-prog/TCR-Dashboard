@@ -92,6 +92,21 @@ const EXECUTIVE_SUPPORT_BREAKDOWN_SCRIPT = `
     })();
 `;
 
+const PATHWAYS_REVENUE_AMOUNT = "$79,535.10";
+const EXECUTIVE_SUPPORT_PATHWAYS_SOLD = "2";
+
+function applyPathwaysValueOverrides(html) {
+  return html
+    .replace(
+      /(<h3>Revenue Attributed to Pathways<\/h3>[\s\S]*?<tbody><tr><td>)([^<]+)(<\/td><\/tr><\/tbody>)/,
+      (_match, start, _value, end) => `${start}${PATHWAYS_REVENUE_AMOUNT}${end}`
+    )
+    .replace(
+      /(<tr><td>Executive Support<\/td><td>)([^<]+)(<\/td><\/tr>)/,
+      (_match, start, _value, end) => `${start}${EXECUTIVE_SUPPORT_PATHWAYS_SOLD}${end}`
+    );
+}
+
 const htmlResponse = (body, response) => {
   const headers = new Headers(response.headers);
   headers.delete("content-length");
@@ -112,7 +127,7 @@ export default async (_request, context) => {
   }
 
   const html = await response.text();
-  let nextHtml = html;
+  let nextHtml = applyPathwaysValueOverrides(html);
 
   const salesPipelineMarker = `      <details class="accordion-panel">
         <summary><span class="accordion-title">Sales Pipeline</span><span class="accordion-icon" aria-hidden="true"></span></summary>`;
