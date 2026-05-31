@@ -80,18 +80,108 @@ const executiveSupportBreakdownBySlug = {
   "discovery-call-the-disconnected-achiever": "The Disconnected Achiever",
 };
 
-function dateOnly(d) { return d.toISOString().slice(0, 10); }
+const REPORTING_TIME_ZONE = "Australia/Sydney";
+const DATE_PART_FORMATTER = new Intl.DateTimeFormat("en-AU", {
+  timeZone: REPORTING_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const DATE_TIME_PART_FORMATTER = new Intl.DateTimeFormat("en-AU", {
+  timeZone: REPORTING_TIME_ZONE,
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
 
-function getRange(params) {
+function pad2(value) { return String(value).padStart(2, "0"); }
+function dateString(year, month, day) { return year + "-" + pad2(month) + "-" + pad2(day); }
+function parseDateString(value) {
+  const [year, month, day] = String(value).split("-").map(Number);
+  return { year, month, day };
+}
+function utcDateString(date) { return date.toISOString().slice(0, 10); }
+function addDays(dateValue, days) {
+  const { year, month, day } = parseDateString(dateValue);
+  return utcDateString(new Date(Date.UTC(year, month - 1, day + days)));
+}
+function daysInMonth(year, month) { return new Date(Date.UTC(year, month, 0)).getUTCDate(); }
+function shiftedMonth(year, month, offset) {
+  const shifted = new Date(Date.UTC(year, month - 1 + offset, 1));
+  return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1 };
+}
+function partsToObject(parts) {
+  return Object.fromEntries(parts.map(part => [part.type, part.value]));
+}
+function getSydneyDateParts(date = new Date()) {
+  const parts = partsToObject(DATE_PART_FORMATTER.formatToParts(date));
+  return { year: Number(parts.year), month: Number(parts.month), day: Number(parts.day) };
+}
+function zonedDateFromIso(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  const parts = getSydneyDateParts(date);
+  return dateString(parts.year, parts.month, parts.day);
+}
+function getTimeZoneOffsetMs(date) {
+  const parts = partsToObject(DATE_TIME_PART_FORMATTER.formatToParts(date));
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+  return asUtc - (date.getTime() - date.getUTCMilliseconds());
+}
+function zonedDateTimeToUtcIso(dateValue, boundary = "start") {
+  const { year, month, day } = parseDateString(dateValue);
+  const hour = boundary === "end" ? 23 : 0;
+  const minute = boundary === "end" ? 59 : 0;
+  const second = boundary === "end" ? 59 : 0;
+  const millisecond = boundary === "end" ? 999 : 0;
+  const localAsUtc = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+  const firstGuess = new Date(localAsUtc);
+  const firstOffset = getTimeZoneOffsetMs(firstGuess);
+  const secondGuess = new Date(localAsUtc - firstOffset);
+  const secondOffset = getTimeZoneOffsetMs(secondGuess);
+  return new Date(localAsUtc - secondOffset).toISOString();
+}
+
+function getRange(params, now = new Date()) {
   const key = params.get("range") || "mtd";
-  const today = new Date();
-  let start = new Date(today);
-  let end = new Date(today);
-  if (key === "mtd") start = new Date(today.getFullYear(), today.getMonth(), 1);
-  if (key === "last30") { start = new Date(today); start.setDate(today.getDate() - 30); }
-  if (key === "lastMonth") { start = new Date(today.getFullYear(), today.getMonth() - 1, 1); end = new Date(today.getFullYear(), today.getMonth(), 0); }
-  if (key === "qtd") { const q = Math.floor(today.getMonth() / 3) * 3; start = new Date(today.getFullYear(), q, 1); }
-  return { key, startDate: dateOnly(start), endDate: dateOnly(end) };
+  const today = getSydneyDateParts(now);
+  const todayDate = dateString(today.year, today.month, today.day);
+  let startDate = todayDate;
+  let endDate = todayDate;
+
+  // Current month reporting uses the Australia/Sydney calendar, not the server/UTC date.
+  if (key === "mtd") startDate = dateString(today.year, today.month, 1);
+  if (key === "last30") startDate = addDays(todayDate, -30);
+  if (key === "lastMonth") {
+    const previous = shiftedMonth(today.year, today.month, -1);
+    startDate = dateString(previous.year, previous.month, 1);
+    endDate = dateString(previous.year, previous.month, daysInMonth(previous.year, previous.month));
+  }
+  if (key === "qtd") {
+    const quarterStartMonth = Math.floor((today.month - 1) / 3) * 3 + 1;
+    startDate = dateString(today.year, quarterStartMonth, 1);
+  }
+
+  return {
+    key,
+    startDate,
+    endDate,
+    startDateTimeUtc: zonedDateTimeToUtcIso(startDate, "start"),
+    endDateTimeUtc: zonedDateTimeToUtcIso(endDate, "end"),
+    timeZone: REPORTING_TIME_ZONE,
+  };
 }
 
 function slugFrom(value) {
@@ -184,4 +274,4 @@ function emptyData(range, warnings = []) {
   };
 }
 
-module.exports = { getRange, slugFrom, mapCalendlySlug, normaliseProduct, groupCount, groupSum, emptyData };
+module.exports = { getRange, zonedDateFromIso, zonedDateTimeToUtcIso, slugFrom, mapCalendlySlug, normaliseProduct, groupCount, groupSum, emptyData };
