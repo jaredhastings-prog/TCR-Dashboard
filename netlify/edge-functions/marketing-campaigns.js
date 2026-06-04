@@ -92,7 +92,8 @@ const EXECUTIVE_SUPPORT_BREAKDOWN_SCRIPT = `
     })();
 `;
 
-const PATHWAYS_REVENUE_AMOUNT = "$79,535.10";
+const PATHWAYS_REVENUE_AMOUNT = "$81,335.10";
+const SELF_DEVELOPMENT_PATHWAYS_SOLD = "6";
 const EXECUTIVE_SUPPORT_PATHWAYS_SOLD = "2";
 
 function applyPathwaysValueOverrides(html) {
@@ -100,6 +101,10 @@ function applyPathwaysValueOverrides(html) {
     .replace(
       /(<h3>Revenue Attributed to Pathways<\/h3>[\s\S]*?<tbody><tr><td>)([^<]+)(<\/td><\/tr><\/tbody>)/,
       (_match, start, _value, end) => `${start}${PATHWAYS_REVENUE_AMOUNT}${end}`
+    )
+    .replace(
+      /(<tr><td>Self-Development<\/td><td>)([^<]+)(<\/td><\/tr>)/,
+      (_match, start, _value, end) => `${start}${SELF_DEVELOPMENT_PATHWAYS_SOLD}${end}`
     )
     .replace(
       /(<tr><td>Executive Support<\/td><td>)([^<]+)(<\/td><\/tr>)/,
