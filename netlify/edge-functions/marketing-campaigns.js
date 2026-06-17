@@ -1,3 +1,25 @@
+const MARKETING_CAMPAIGN_NAMES = [
+  "NLP Practitioner",
+  "Executive Pathway",
+  "RoomMates",
+  "Self-Development Pathway",
+  "Coach Training Pathway",
+];
+
+const MARKETING_CAMPAIGN_SOURCES = ["Facebook", "Instagram", "LinkedIn", "Email"];
+
+function renderMarketingCampaignRows() {
+  return MARKETING_CAMPAIGN_NAMES.map(campaign =>
+    MARKETING_CAMPAIGN_SOURCES.map((source, index) => {
+      const campaignCell = index === 0
+        ? `<td rowspan="4" style="font-weight:700;vertical-align:top;">${campaign}</td>`
+        : "";
+
+      return `<tr>${campaignCell}<td>${source}</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td data-call-bookings-cell data-campaign="${campaign}" data-source="${source}">0</td></tr>`;
+    }).join("\n                    ")
+  ).join("\n                    ");
+}
+
 const MARKETING_CAMPAIGNS_SECTION = `      <details class="accordion-panel">
         <summary><span class="accordion-title">Marketing Campaigns</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
@@ -7,33 +29,13 @@ const MARKETING_CAMPAIGNS_SECTION = `      <details class="accordion-panel">
               <table>
                 <thead><tr><th>Campaign</th><th>Source</th><th>Clicks</th><th>Call Bookings</th></tr></thead>
                 <tbody>
-                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">NLP Practitioner</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">Executive Pathway</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">RoomMates</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">Self-Development Pathway</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">Coach Training Pathway</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    ${renderMarketingCampaignRows()}
                 </tbody>
               </table>
             </div>
           </section>
         </div>
       </details>`;
-
 const EXECUTIVE_SUPPORT_BREAKDOWN_STYLES = `
     .count-breakdown { border-bottom:1px solid #e5e7eb; }
     .count-breakdown:last-child { border-bottom:0; }
@@ -96,6 +98,12 @@ const EXECUTIVE_SUPPORT_BREAKDOWN_SCRIPT = `
 const CALENDLY_SOURCE_COLUMN_SCRIPT = `
     (() => {
       const AWAITING_UTM_DATA = "Awaiting UTM Data";
+      const SOURCE_LABELS = {
+        facebook: "Facebook",
+        instagram: "Instagram",
+        linkedin: "LinkedIn",
+        email: "Email",
+      };
       const baseFetch = window.fetch.bind(window);
 
       window.fetch = async (...args) => {
@@ -105,9 +113,9 @@ const CALENDLY_SOURCE_COLUMN_SCRIPT = `
         if (requestUrl.includes("/.netlify/functions/dashboard-data")) {
           response.clone().json().then(data => {
             window.__tcrDashboardData = data;
-            queueMicrotask(updateCalendlySourceColumn);
-            setTimeout(updateCalendlySourceColumn, 0);
-            setTimeout(updateCalendlySourceColumn, 100);
+            queueMicrotask(updateDashboardSourceViews);
+            setTimeout(updateDashboardSourceViews, 0);
+            setTimeout(updateDashboardSourceViews, 100);
           }).catch(() => {});
         }
 
@@ -128,15 +136,76 @@ const CALENDLY_SOURCE_COLUMN_SCRIPT = `
         headerRow.appendChild(sourceHeader);
       }
 
-      function sourceValue(call) {
+      function dashboardCalls() {
+        return Array.isArray(window.__tcrDashboardData && window.__tcrDashboardData.calls)
+          ? window.__tcrDashboardData.calls
+          : [];
+      }
+
+      function firstNonEmpty(...values) {
+        for (const value of values) {
+          if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+        }
+        return "";
+      }
+
+      function normaliseSource(value) {
+        return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+      }
+
+      function rawSourceValue(call) {
         if (!call) return "";
-        return call.source || call.utmSource || call.utm_source || call.trafficSource || call.campaignSource || "";
+        const utm = call.utm && typeof call.utm === "object" ? call.utm : {};
+        return firstNonEmpty(call.utmSource, call.utm_source, call.source, call.trafficSource, call.campaignSource, utm.source);
+      }
+
+      function formatSource(value) {
+        const raw = String(value || "").trim();
+        const normalised = normaliseSource(raw);
+        if (!normalised) return "";
+        return SOURCE_LABELS[normalised] || raw;
       }
 
       function renderSource(value) {
-        return value
-          ? escapeHtml(value)
+        const formatted = formatSource(value);
+        return formatted
+          ? escapeHtml(formatted)
           : '<span class="integration-placeholder">' + AWAITING_UTM_DATA + '</span>';
+      }
+
+      function campaignValue(call) {
+        if (!call) return "";
+        const category = String(call.category || "").trim();
+        const subCategory = String(call.subCategory || "").trim();
+
+        if (category === "NLP Practitioner" || subCategory === "NLP Practitioner") return "NLP Practitioner";
+        if (category === "RoomMates" || subCategory === "RoomMates") return "RoomMates";
+        if (category === "Self-Development Pathway" || subCategory === "Self-Development Pathway") return "Self-Development Pathway";
+        if (category === "Coach Training Pathway" || subCategory === "Coach Training Pathway") return "Coach Training Pathway";
+        if (category === "Executive Pathway" || subCategory === "Executive Pathway") return "Executive Pathway";
+
+        return "";
+      }
+
+      function updateMarketingCampaignPerformance() {
+        const counts = new Map();
+
+        dashboardCalls().forEach(call => {
+          const campaign = campaignValue(call);
+          const source = formatSource(rawSourceValue(call));
+          const sourceKey = SOURCE_LABELS[normaliseSource(source)];
+
+          if (!campaign || !sourceKey) return;
+          const key = campaign + "|" + sourceKey;
+          counts.set(key, (counts.get(key) || 0) + 1);
+        });
+
+        document.querySelectorAll("[data-call-bookings-cell]").forEach(cell => {
+          const campaign = cell.getAttribute("data-campaign") || "";
+          const source = cell.getAttribute("data-source") || "";
+          const value = counts.get(campaign + "|" + source) || 0;
+          cell.textContent = String(value);
+        });
       }
 
       function updateCalendlySourceColumn() {
@@ -144,9 +213,7 @@ const CALENDLY_SOURCE_COLUMN_SCRIPT = `
         if (!body) return;
         ensureSourceHeader();
 
-        const calls = Array.isArray(window.__tcrDashboardData && window.__tcrDashboardData.calls)
-          ? window.__tcrDashboardData.calls
-          : [];
+        const calls = dashboardCalls();
 
         Array.from(body.querySelectorAll("tr")).forEach((row, index) => {
           let sourceCell = row.querySelector("td[data-source-cell]");
@@ -156,9 +223,14 @@ const CALENDLY_SOURCE_COLUMN_SCRIPT = `
             row.appendChild(sourceCell);
           }
 
-          const nextHtml = renderSource(sourceValue(calls[index]));
+          const nextHtml = renderSource(rawSourceValue(calls[index]));
           if (sourceCell.innerHTML !== nextHtml) sourceCell.innerHTML = nextHtml;
         });
+      }
+
+      function updateDashboardSourceViews() {
+        updateCalendlySourceColumn();
+        updateMarketingCampaignPerformance();
       }
 
       function initSourceColumnObserver() {
@@ -167,7 +239,7 @@ const CALENDLY_SOURCE_COLUMN_SCRIPT = `
         body.dataset.sourceObserverReady = "true";
         new MutationObserver(updateCalendlySourceColumn).observe(body, { childList: true });
         ensureSourceHeader();
-        updateCalendlySourceColumn();
+        updateDashboardSourceViews();
       }
 
       if (document.readyState === "loading") {
@@ -177,7 +249,6 @@ const CALENDLY_SOURCE_COLUMN_SCRIPT = `
       }
     })();
 `;
-
 const PATHWAYS_REVENUE_AMOUNT = "$85,335.10";
 const SELF_DEVELOPMENT_PATHWAYS_SOLD = "6";
 const EXECUTIVE_SUPPORT_PATHWAYS_SOLD = "2";
