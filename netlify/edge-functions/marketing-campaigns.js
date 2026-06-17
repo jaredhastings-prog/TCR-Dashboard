@@ -1,46 +1,34 @@
 const MARKETING_CAMPAIGNS_SECTION = `      <details class="accordion-panel">
         <summary><span class="accordion-title">Marketing Campaigns</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
-          <section class="grid-3">
-            <div class="card">
-              <h3>Traffic Source Summary</h3>
-              <div class="table-scroll wide-table">
-                <table>
-                  <thead><tr><th>Source</th><th>Product Page Visits</th><th>Direct Booking Clicks</th><th>Calls Booked</th></tr></thead>
-                  <tbody>
-                    <tr><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div class="card">
-              <h3>CTA Type Summary</h3>
-              <div class="table-scroll">
-                <table>
-                  <thead><tr><th>CTA Type</th><th>Count</th></tr></thead>
-                  <tbody>
-                    <tr><td>Product Page</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Book Call</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div class="card">
-              <h3>Campaign / Link Readiness</h3>
-              <div class="table-scroll">
-                <table>
-                  <thead><tr><th>Tracking Area</th><th>Status</th></tr></thead>
-                  <tbody>
-                    <tr><td>Product Page UTMs</td><td>Ready</td></tr>
-                    <tr><td>Direct Calendly UTMs</td><td>Ready</td></tr>
-                    <tr><td>Calendly Source Capture</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
-                    <tr><td>Dashboard Source Reporting</td><td>In progress</td></tr>
-                  </tbody>
-                </table>
-              </div>
+          <section class="card">
+            <h3>Marketing Campaign Performance</h3>
+            <div class="table-scroll wide-table">
+              <table>
+                <thead><tr><th>Campaign</th><th>Source</th><th>Clicks</th><th>Call Bookings</th></tr></thead>
+                <tbody>
+                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">NLP Practitioner</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">Executive Pathway</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">RoomMates</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">Self-Development Pathway</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">Coach Training Pathway</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                </tbody>
+              </table>
             </div>
           </section>
         </div>
