@@ -61,6 +61,64 @@ function dedupeKey(call) {
   ].map(value => String(value || "").trim().toLowerCase()).join("|");
 }
 
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return "";
+}
+
+function normaliseUtmKey(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function valueFromObjectByKeys(object, keys) {
+  if (!object || typeof object !== "object") return "";
+  const wanted = new Set(keys.map(normaliseUtmKey));
+  for (const [key, value] of Object.entries(object)) {
+    if (wanted.has(normaliseUtmKey(key)) && value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return "";
+}
+
+function answerFromInviteeQuestions(invitee, keys) {
+  const answers = invitee && Array.isArray(invitee.questions_and_answers) ? invitee.questions_and_answers : [];
+  const wanted = new Set(keys.map(normaliseUtmKey));
+
+  for (const item of answers) {
+    const label = firstNonEmpty(item.question, item.name, item.label, item.key);
+    const answer = firstNonEmpty(item.answer, item.value, item.response);
+    if (wanted.has(normaliseUtmKey(label)) && answer) return answer;
+  }
+
+  return "";
+}
+
+function extractCalendlyUtms(invitee = {}) {
+  const tracking = invitee && typeof invitee.tracking === "object" ? invitee.tracking : {};
+  return {
+    source: firstNonEmpty(
+      valueFromObjectByKeys(tracking, ["utm_source", "UTM_Source", "utmSource", "source"]),
+      valueFromObjectByKeys(invitee, ["utm_source", "UTM_Source", "utmSource", "source"]),
+      answerFromInviteeQuestions(invitee, ["UTM_Source", "utm_source", "utm source"])
+    ),
+    medium: firstNonEmpty(
+      valueFromObjectByKeys(tracking, ["utm_medium", "UTM_Medium", "utmMedium", "medium"]),
+      valueFromObjectByKeys(invitee, ["utm_medium", "UTM_Medium", "utmMedium", "medium"]),
+      answerFromInviteeQuestions(invitee, ["UTM_Medium", "utm_medium", "utm medium"])
+    ),
+    content: firstNonEmpty(
+      valueFromObjectByKeys(tracking, ["utm_content", "UTM_Content", "utmContent", "content"]),
+      valueFromObjectByKeys(invitee, ["utm_content", "UTM_Content", "utmContent", "content"]),
+      answerFromInviteeQuestions(invitee, ["UTM_Content", "utm_content", "utm content"])
+    ),
+  };
+}
+
 async function fetchCalendlyCalls(range, warnings = []) {
   const token = process.env.CALENDLY_API_KEY;
   if (!token) return { calls: [], meta: { totalEventsSeen: 0, includedAllowedEvents: 0, excludedUnmapped: 0, excludedOutsideBookingRange: 0, excludedDuplicateBookings: 0 } };
@@ -105,12 +163,14 @@ async function fetchCalendlyCalls(range, warnings = []) {
 
     let inviteeName = "Unknown";
     let bookingDate = dateFromIso(event.created_at);
+    let utm = { source: "", medium: "", content: "" };
     try {
       const uuid = event.uri.split("/").filter(Boolean).pop();
       const invitees = await calendlyFetch(`https://api.calendly.com/scheduled_events/${uuid}/invitees?count=1`, token);
       const invitee = invitees.collection && invitees.collection[0] ? invitees.collection[0] : null;
       inviteeName = invitee && invitee.name ? invitee.name : "Unknown";
       bookingDate = dateFromIso(invitee && invitee.created_at ? invitee.created_at : event.created_at);
+      utm = extractCalendlyUtms(invitee || {});
     } catch {}
 
     if (!isDateInRange(bookingDate, range)) {
@@ -132,6 +192,10 @@ async function fetchCalendlyCalls(range, warnings = []) {
       category: mapping.category,
       subCategory: mapping.subCategory,
       subSubCategory: mapping.subSubCategory,
+      source: utm.source,
+      utmSource: utm.source,
+      utmMedium: utm.medium,
+      utmContent: utm.content,
       matchType: mapping.matchType,
     });
   }
