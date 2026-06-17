@@ -1,33 +1,34 @@
 const MARKETING_CAMPAIGNS_SECTION = `      <details class="accordion-panel">
         <summary><span class="accordion-title">Marketing Campaigns</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
-          <section class="grid-3">
-            <div class="card">
-              <h3>Email Campaigns</h3>
-              <div class="table-scroll wide-table">
-                <table>
-                  <thead><tr><th>Campaign</th><th>Sent</th><th>Open Rate</th><th>Clicks</th><th>Calendly Clicks</th><th>Calls Booked</th><th>Deals Won</th></tr></thead>
-                  <tbody><tr><td colspan="7"><span class="integration-placeholder">Awaiting Integration</span></td></tr></tbody>
-                </table>
-              </div>
-            </div>
-            <div class="card">
-              <h3>Paid Social Campaigns</h3>
-              <div class="table-scroll wide-table">
-                <table>
-                  <thead><tr><th>Campaign</th><th>Spend</th><th>Clicks</th><th>Landing Page Views</th><th>Calendly Clicks</th><th>Calls Booked</th><th>Cost Per Call</th></tr></thead>
-                  <tbody><tr><td colspan="7"><span class="integration-placeholder">Awaiting Integration</span></td></tr></tbody>
-                </table>
-              </div>
-            </div>
-            <div class="card">
-              <h3>Organic Social</h3>
-              <div class="table-scroll">
-                <table>
-                  <thead><tr><th>Platform</th><th>Post / Topic</th><th>Reach</th><th>Clicks</th><th>Calls Generated</th></tr></thead>
-                  <tbody><tr><td colspan="5"><span class="integration-placeholder">Awaiting Integration</span></td></tr></tbody>
-                </table>
-              </div>
+          <section class="card">
+            <h3>Marketing Campaign Performance</h3>
+            <div class="table-scroll wide-table">
+              <table>
+                <thead><tr><th>Campaign</th><th>Source</th><th>Clicks</th><th>Call Bookings</th></tr></thead>
+                <tbody>
+                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">NLP Practitioner</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">Executive Pathway</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">RoomMates</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">Self-Development Pathway</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td rowspan="4" style="font-weight:700;vertical-align:top;">Coach Training Pathway</td><td>Facebook</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Instagram</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>LinkedIn</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                    <tr><td>Email</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td><span class="integration-placeholder">Awaiting UTM Data</span></td></tr>
+                </tbody>
+              </table>
             </div>
           </section>
         </div>
@@ -92,6 +93,91 @@ const EXECUTIVE_SUPPORT_BREAKDOWN_SCRIPT = `
     })();
 `;
 
+const CALENDLY_SOURCE_COLUMN_SCRIPT = `
+    (() => {
+      const AWAITING_UTM_DATA = "Awaiting UTM Data";
+      const baseFetch = window.fetch.bind(window);
+
+      window.fetch = async (...args) => {
+        const response = await baseFetch(...args);
+        const requestUrl = String(args[0] && args[0].url ? args[0].url : args[0] || "");
+
+        if (requestUrl.includes("/.netlify/functions/dashboard-data")) {
+          response.clone().json().then(data => {
+            window.__tcrDashboardData = data;
+            queueMicrotask(updateCalendlySourceColumn);
+            setTimeout(updateCalendlySourceColumn, 0);
+            setTimeout(updateCalendlySourceColumn, 100);
+          }).catch(() => {});
+        }
+
+        return response;
+      };
+
+      function getCallsTable() {
+        const body = document.getElementById("callsTable");
+        return body ? body.closest("table") : null;
+      }
+
+      function ensureSourceHeader() {
+        const table = getCallsTable();
+        const headerRow = table && table.querySelector("thead tr");
+        if (!headerRow || Array.from(headerRow.children).some(cell => cell.textContent.trim() === "Source")) return;
+        const sourceHeader = document.createElement("th");
+        sourceHeader.textContent = "Source";
+        headerRow.appendChild(sourceHeader);
+      }
+
+      function sourceValue(call) {
+        if (!call) return "";
+        return call.source || call.utmSource || call.utm_source || call.trafficSource || call.campaignSource || "";
+      }
+
+      function renderSource(value) {
+        return value
+          ? escapeHtml(value)
+          : '<span class="integration-placeholder">' + AWAITING_UTM_DATA + '</span>';
+      }
+
+      function updateCalendlySourceColumn() {
+        const body = document.getElementById("callsTable");
+        if (!body) return;
+        ensureSourceHeader();
+
+        const calls = Array.isArray(window.__tcrDashboardData && window.__tcrDashboardData.calls)
+          ? window.__tcrDashboardData.calls
+          : [];
+
+        Array.from(body.querySelectorAll("tr")).forEach((row, index) => {
+          let sourceCell = row.querySelector("td[data-source-cell]");
+          if (!sourceCell) {
+            sourceCell = document.createElement("td");
+            sourceCell.setAttribute("data-source-cell", "true");
+            row.appendChild(sourceCell);
+          }
+
+          const nextHtml = renderSource(sourceValue(calls[index]));
+          if (sourceCell.innerHTML !== nextHtml) sourceCell.innerHTML = nextHtml;
+        });
+      }
+
+      function initSourceColumnObserver() {
+        const body = document.getElementById("callsTable");
+        if (!body || body.dataset.sourceObserverReady === "true") return;
+        body.dataset.sourceObserverReady = "true";
+        new MutationObserver(updateCalendlySourceColumn).observe(body, { childList: true });
+        ensureSourceHeader();
+        updateCalendlySourceColumn();
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initSourceColumnObserver);
+      } else {
+        initSourceColumnObserver();
+      }
+    })();
+`;
+
 const PATHWAYS_REVENUE_AMOUNT = "$85,335.10";
 const SELF_DEVELOPMENT_PATHWAYS_SOLD = "6";
 const EXECUTIVE_SUPPORT_PATHWAYS_SOLD = "2";
@@ -150,6 +236,10 @@ export default async (_request, context) => {
 
   if (!nextHtml.includes("EXECUTIVE_SUPPORT_CATEGORY")) {
     nextHtml = nextHtml.replace("    loadDashboard();", `${EXECUTIVE_SUPPORT_BREAKDOWN_SCRIPT}\n    loadDashboard();`);
+  }
+
+  if (!nextHtml.includes("__tcrDashboardData")) {
+    nextHtml = nextHtml.replace("    loadDashboard();", `${CALENDLY_SOURCE_COLUMN_SCRIPT}\n    loadDashboard();`);
   }
 
   return htmlResponse(nextHtml, response);
