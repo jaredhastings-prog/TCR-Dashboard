@@ -7,6 +7,7 @@ const calendlyEventMap = {
   "discovery-call-the-optimiser": { category: "Self-Development Pathway", subCategory: "The Optimiser" },
   "discovery-call-the-rebuilder": { category: "Self-Development Pathway", subCategory: "The Rebuilder" },
   "discovery-call-the-seeker": { category: "Self-Development Pathway", subCategory: "The Seeker" },
+  "discovery-call-figuring-out-people": { category: "Figuring Out People" },
   "let-s-talk-nlp": { category: "NLP Practitioner" },
   "let-s-talk-roommates": { category: "RoomMates", subCategory: "RoomMates" },
 
