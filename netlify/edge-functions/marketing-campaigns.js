@@ -15,7 +15,7 @@ function renderMarketingCampaignRows() {
         ? `<td rowspan="4" style="font-weight:700;vertical-align:top;">${campaign}</td>`
         : "";
 
-      return `<tr>${campaignCell}<td>${source}</td><td><span class="integration-placeholder">Awaiting UTM Data</span></td><td data-call-bookings-cell data-campaign="${campaign}" data-source="${source}">0</td></tr>`;
+      return `<tr>${campaignCell}<td>${source}</td><td data-call-bookings-cell data-campaign="${campaign}" data-source="${source}">0</td></tr>`;
     }).join("\n                    ")
   ).join("\n                    ");
 }
@@ -27,7 +27,7 @@ const MARKETING_CAMPAIGNS_SECTION = `      <details class="accordion-panel">
             <h3>Marketing Campaign Performance</h3>
             <div class="table-scroll wide-table">
               <table>
-                <thead><tr><th>Campaign</th><th>Source</th><th>Clicks</th><th>Call Bookings</th></tr></thead>
+                <thead><tr><th>Campaign</th><th>Source</th><th>Call Bookings</th></tr></thead>
                 <tbody>
                     ${renderMarketingCampaignRows()}
                 </tbody>
