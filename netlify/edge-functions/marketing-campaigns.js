@@ -249,6 +249,82 @@ const CALENDLY_SOURCE_COLUMN_SCRIPT = `
       }
     })();
 `;
+const CALENDLY_UTM_FORWARDING_SCRIPT = `
+<script>
+  (() => {
+    if (window.__tcrCalendlyUtmForwardingReady) return;
+    window.__tcrCalendlyUtmForwardingReady = true;
+
+    const UTM_KEYS = ["utm_source", "utm_medium", "utm_content", "utm_campaign", "utm_term"];
+    const pageParams = new URLSearchParams(window.location.search);
+    const utms = UTM_KEYS
+      .map(key => [key, pageParams.get(key)])
+      .filter(([, value]) => value !== null && String(value).trim() !== "");
+
+    if (!utms.length) return;
+
+    function isCalendlyUrl(url) {
+      return url.hostname === "calendly.com" || url.hostname.endsWith(".calendly.com");
+    }
+
+    function withForwardedUtms(href) {
+      try {
+        const url = new URL(href, window.location.href);
+        if (!isCalendlyUrl(url)) return href;
+
+        // Carry page UTM params onto Calendly links so bookings retain campaign source data.
+        utms.forEach(([key, value]) => {
+          if (!url.searchParams.has(key)) url.searchParams.set(key, value);
+        });
+        return url.toString();
+      } catch {
+        return href;
+      }
+    }
+
+    function updateCalendlyLink(link) {
+      const href = link && link.getAttribute("href");
+      if (!href) return;
+      const nextHref = withForwardedUtms(href);
+      if (nextHref !== href) link.setAttribute("href", nextHref);
+    }
+
+    function updateCalendlyLinks(root = document) {
+      if (!root.querySelectorAll) return;
+      root.querySelectorAll('a[href*="calendly.com"]').forEach(updateCalendlyLink);
+    }
+
+    document.addEventListener("click", event => {
+      const link = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+      if (link) updateCalendlyLink(link);
+    }, true);
+
+    document.addEventListener("mousedown", event => {
+      const link = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+      if (link) updateCalendlyLink(link);
+    }, true);
+
+    const start = () => {
+      updateCalendlyLinks();
+      new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+          mutation.addedNodes.forEach(node => {
+            if (node.nodeType !== 1) return;
+            if (node.matches && node.matches('a[href*="calendly.com"]')) updateCalendlyLink(node);
+            updateCalendlyLinks(node);
+          });
+        });
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    };
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", start);
+    } else {
+      start();
+    }
+  })();
+</script>
+`;
 const PATHWAYS_REVENUE_AMOUNT = "$85,335.10";
 const SELF_DEVELOPMENT_PATHWAYS_SOLD = "6";
 const EXECUTIVE_SUPPORT_PATHWAYS_SOLD = "2";
@@ -294,6 +370,11 @@ export default async (_request, context) => {
   const salesPipelineMarker = `      <details class="accordion-panel">
         <summary><span class="accordion-title">Sales Pipeline</span><span class="accordion-icon" aria-hidden="true"></span></summary>`;
 
+  if (!nextHtml.includes("__tcrCalendlyUtmForwardingReady")) {
+    nextHtml = nextHtml.includes("</body>")
+      ? nextHtml.replace("</body>", `${CALENDLY_UTM_FORWARDING_SCRIPT}\n</body>`)
+      : `${nextHtml}\n${CALENDLY_UTM_FORWARDING_SCRIPT}`;
+  }
   if (!nextHtml.includes("Marketing Campaigns") && nextHtml.includes(salesPipelineMarker)) {
     nextHtml = nextHtml.replace(
       salesPipelineMarker,
