@@ -325,9 +325,9 @@ const CALENDLY_UTM_FORWARDING_SCRIPT = `
   })();
 </script>
 `;
-const PATHWAYS_REVENUE_AMOUNT = "$85,335.10";
+const PATHWAYS_REVENUE_AMOUNT = "$91,935.10";
 const SELF_DEVELOPMENT_PATHWAYS_SOLD = "6";
-const EXECUTIVE_SUPPORT_PATHWAYS_SOLD = "2";
+const EXECUTIVE_SUPPORT_PATHWAYS_SOLD = "3";
 
 function applyPathwaysValueOverrides(html) {
   return html
