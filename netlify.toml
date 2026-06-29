@@ -33,6 +33,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/hubspot-pipeline-debug"
+  to = "/.netlify/functions/hubspot-pipeline-debug"
+  status = 200
+
+[[redirects]]
   from = "/api/calendly-debug"
   to = "/.netlify/functions/calendly-debug"
   status = 200
