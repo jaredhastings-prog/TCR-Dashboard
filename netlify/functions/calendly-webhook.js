@@ -126,7 +126,7 @@ exports.handler = async (event) => {
   }
 
   const properties = {
-    dealname: inviteeName,
+    dealname: `${inviteeName} - ${eventName}`,
     pipeline: pipelineStage.pipelineId,
     dealstage: pipelineStage.stageId,
     ...(closeDate ? { closedate: closeDate } : {}),
