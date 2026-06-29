@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TCR Business Dashboard</title>
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAASxlWElmTU0AKgAAAAgABwESAAMAAAABAAEAAAEaAAUAAAABAAAAYgEbAAUAAAABAAAAagEoAAMAAAABAAIAAAExAAIAAABmAAAAcgE7AAIAAAAGAAAA2IdpAAQAAAABAAAA3gAAAAAAAABgAAAAAQAAAGAAAAABQ2FudmEgZG9jPURBSERJREVqX3A0IHVzZXI9VUFHQk5fejdoYVkgYnJhbmQ9VGhlIENvYWNoaW5nIFJvb20gdGVtcGxhdGU9R3JlZW4gTW9kZXJuIEZpdG5lc3MgQXBwIExvZ28ASmFyZWQAAAaQAAAHAAAABDAyMTCRAQAHAAAABAECAwCgAAAHAAAABDAxMDCgAQADAAAAAQABAACgAgAEAAAAAQAAAECgAwAEAAAAAQAAAEAAAAAAW15XPQAAAAlwSFlzAAAOxAAADsQBlSsOGwAABnBpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IlhNUCBDb3JlIDYuMC4wIj4KICAgPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICAgICAgPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIKICAgICAgICAgICAgeG1sbnM6ZXhpZj0iaHR0cDovL25zLmFkb2JlLmNvbS9leGlmLzEuMC8iCiAgICAgICAgICAgIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIKICAgICAgICAgICAgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iCiAgICAgICAgICAgIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyI+CiAgICAgICAgIDxleGlmOkNvbG9yU3BhY2U+NjU1MzU8L2V4aWY6Q29sb3JTcGFjZT4KICAgICAgICAgPGV4aWY6UGl4ZWxYRGltZW5zaW9uPjIwMDA8L2V4aWY6UGl4ZWxYRGltZW5zaW9uPgogICAgICAgICA8ZXhpZjpFeGlmVmVyc2lvbj4wMjEwPC9leGlmOkV4aWZWZXJzaW9uPgogICAgICAgICA8ZXhpZjpGbGFzaFBpeFZlcnNpb24+MDEwMDwvZXhpZjpGbGFzaFBpeFZlcnNpb24+CiAgICAgICAgIDxleGlmOlBpeGVsWURpbWVuc2lvbj4yMDAwPC9leGlmOlBpeGVsWURpbWVuc2lvbj4KICAgICAgICAgPGV4aWY6Q29tcG9uZW50c0NvbmZpZ3VyYXRpb24+CiAgICAgICAgICAgIDxyZGY6U2VxPgogICAgICAgICAgICAgICA8cmRmOmxpPjE8L3JkZjpsaT4KICAgICAgICAgICAgICAgPHJkZjpsaT4yPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGk+MzwvcmRmOmxpPgogICAgICAgICAgICAgICA8cmRmOmxpPjA8L3JkZjpsaT4KICAgICAgICAgICAgPC9yZGY6U2VxPgogICAgICAgICA8L2V4aWY6Q29tcG9uZW50c0NvbmZpZ3VyYXRpb24+CiAgICAgICAgIDx4bXA6Q3JlYXRvclRvb2w+Q2FudmEgZG9jPURBSERJREVqX3A0IHVzZXI9VUFHQk5fejdoYVkgYnJhbmQ9VGhlIENvYWNoaW5nIFJvb20gdGVtcGxhdGU9R3JlZW4gTW9kZXJuIEZpdG5lc3MgQXBwIExvZ288L3htcDpDcmVhdG9yVG9vbD4KICAgICAgICAgPHRpZmY6UmVzb2x1dGlvblVuaXQ+MjwvdGlmZjpSZXNvbHV0aW9uVW5pdD4KICAgICAgICAgPHRpZmY6T3JpZW50YXRpb24+MTwvdGlmZjpPcmllbnRhdGlvbj4KICAgICAgICAgPHRpZmY6WFJlc29sdXRpb24+OTY8L3RpZmY6WFJlc29sdXRpb24+CiAgICAgICAgIDx0aWZmOllSZXNvbHV0aW9uPjk2PC90aWZmOllSZXNvbHV0aW9uPgogICAgICAgICA8ZGM6dGl0bGU+CiAgICAgICAgICAgIDxyZGY6QWx0PgogICAgICAgICAgICAgICA8cmRmOmxpIHhtbDpsYW5nPSJ4LWRlZmF1bHQiPkdyZWVuIE1vZGVybiBGaXRuZXNzIEFwcCBMb2dvIC0g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" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; }
+    html { -webkit-text-size-adjust:100%; }
+    body { margin:0; font-family: Inter, Arial, sans-serif; background:#f6f7fb; color:#111827; overflow-x:hidden; }
+    .dashboard { max-width:1400px; margin:0 auto; padding:32px; }
+    .header { margin-bottom:20px; }
+    .brand-header { display:flex; align-items:center; gap:24px; min-width:0; }
+    .brand-logo { width:260px; max-width:34vw; height:auto; display:block; flex:0 0 auto; }
+    .brand-copy { min-width:0; }
+    .header h1 { margin:0; font-size:32px; }
+    .header p { margin:8px 0 0; color:#6b7280; }
+    .status { padding:12px 16px; border-radius:14px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:14px; margin-bottom:20px; display:none; }
+    .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:20px 0 28px; background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:16px; box-shadow:0 8px 24px rgba(15,23,42,.04); min-width:0; }
+    .controls label { font-size:13px; color:#6b7280; font-weight:600; }
+    .controls select,.controls input { border:1px solid #d1d5db; border-radius:12px; padding:10px 12px; font-size:14px; background:#fff; }
+    .date-summary { margin-left:auto; font-size:14px; color:#374151; font-weight:600; }
+    .custom-dates { display:none; gap:12px; align-items:center; flex-wrap:wrap; }
+    .custom-dates.active { display:flex; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:20px; box-shadow:0 8px 24px rgba(15,23,42,.04); min-width:0; }
+    .kpi-title { font-size:13px; color:#6b7280; margin-bottom:8px; }
+    .kpi-value { font-size:26px; font-weight:700; line-height:1.15; overflow-wrap:anywhere; }
+    .kpi-subvalue { font-size:13px; font-weight:700; color:#374151; margin-top:4px; }
+    .kpi-note { font-size:12px; color:#10b981; margin-top:8px; }
+    .section-title { font-size:22px; margin:32px 0 16px; }
+    .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }
+    .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+    .count-list { display:grid; gap:10px; margin-top:14px; }
+    .count-row { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:10px 0; border-bottom:1px solid #e5e7eb; }
+    .count-row:last-child { border-bottom:0; }
+    .count-label { color:#374151; font-size:14px; font-weight:600; line-height:1.3; }
+    .count-value { color:#111827; font-size:20px; font-weight:800; }
+    .card-note { color:#6b7280; font-size:12px; margin-top:6px; }
+    .integration-placeholder { color:#dc2626; font-weight:700; }
+    .metric-big { font-size:44px; font-weight:800; margin-top:26px; }
+    .metric-sub { color:#374151; font-size:16px; font-weight:700; margin-top:10px; }
+    .accordion { display:grid; gap:14px; margin-top:8px; }
+    .accordion-panel { background:#fff; border:1px solid #e5e7eb; border-radius:20px; box-shadow:0 8px 24px rgba(15,23,42,.04); overflow:hidden; min-width:0; }
+    .accordion-panel > summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px 24px; font-size:22px; font-weight:800; }
+    .accordion-panel > summary::-webkit-details-marker { display:none; }
+    .accordion-title { display:flex; align-items:center; gap:12px; }
+    .accordion-icon { width:30px; height:30px; border:1px solid #d1d5db; border-radius:999px; display:grid; place-items:center; font-size:20px; line-height:1; color:#111827; flex:0 0 auto; }
+    .accordion-icon::before { content:"+"; transform:translateY(-1px); }
+    .accordion-panel[open] .accordion-icon::before { content:"-"; transform:translateY(-2px); }
+    .accordion-content { border-top:1px solid #e5e7eb; padding:20px; min-width:0; }
+    .accordion-content > .card { box-shadow:none; }
+    .accordion-content > .card:first-child { margin-top:0; }
+    .accordion-content > .card:last-child { margin-bottom:0; }
+    .accordion-content .card { border-radius:16px; }
+    canvas { width:100%!important; height:300px!important; }
+    .table-scroll { max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th,td { padding:12px; border-bottom:1px solid #e5e7eb; text-align:left; }
+    th { color:#6b7280; font-weight:600; }
+    @media (max-width:1100px){ .kpi-grid{grid-template-columns:repeat(3,1fr);} .grid-3{grid-template-columns:1fr;} }
+    @media (max-width:800px){ .dashboard{padding:20px;} .brand-header{align-items:flex-start; flex-direction:column; gap:14px;} .brand-logo{width:220px; max-width:76vw;} .kpi-grid,.grid-2{grid-template-columns:1fr;} }
+    @media (max-width:640px){
+      .dashboard{padding:14px;}
+      .header{margin-bottom:16px;}
+      .brand-logo{width:180px; max-width:70vw;}
+      .header h1{font-size:26px; line-height:1.15;}
+      .header p{font-size:14px; line-height:1.4;}
+      .controls{align-items:stretch; gap:10px; padding:14px; border-radius:16px; margin:16px 0 20px;}
+      .controls label,.date-summary{width:100%; margin-left:0;}
+      .controls select,.controls input,.controls button{width:100%; min-height:44px;}
+      .kpi-grid{grid-template-columns:1fr; gap:12px; margin-bottom:20px;}
+      .card{padding:16px; border-radius:16px;}
+      .kpi-title{font-size:12px; line-height:1.3;}
+      .kpi-value{font-size:24px;}
+      .grid-2,.grid-3{grid-template-columns:1fr; gap:14px;}
+      .accordion{gap:10px;}
+      .accordion-panel{border-radius:16px;}
+      .accordion-panel > summary{padding:16px; min-height:56px; font-size:18px; line-height:1.2;}
+      .accordion-icon{width:34px; height:34px;}
+      .accordion-content{padding:12px;}
+      .accordion-content .card{border-radius:14px;}
+      canvas{height:260px!important;}
+      table{font-size:13px;}
+      th,td{padding:10px; white-space:nowrap;}
+      .table-scroll{padding-bottom:4px;}
+      .table-scroll table{min-width:640px;}
+      .table-scroll.wide-table table{min-width:760px;}
+      .grid-2 .table-scroll table{min-width:0;}
+      .count-row{align-items:flex-start;}
+      .count-value{font-size:18px;}
+    }
+    @media (max-width:420px){
+      .dashboard{padding:10px;}
+      .brand-logo{width:160px;}
+      .header h1{font-size:24px;}
+      .card{padding:14px;}
+      .accordion-panel > summary{padding:14px; font-size:17px;}
+      .accordion-content{padding:10px;}
+      th,td{padding:9px;}
+      .kpi-note{line-height:1.35;}
+    }
+  </style>
+</head>
+<body>
+  <main class="dashboard">
+    <header class="header">
+      <div class="brand-header">
+        <img class="brand-logo" src="assets/coaching-room-logo.png" alt="The Coaching Room" />
+        <div class="brand-copy">
+          <h1>TCR Business Dashboard</h1>
+          <p>Live dashboard. Version: TCR_V27_KAJABI_BLOBS_FIX.</p>
+        </div>
+      </div>
+    </header>
+
+    <div id="status" class="status"></div>
+
+    <section class="controls">
+      <label for="dateRange">Date Range</label>
+      <select id="dateRange">
+        <option value="mtd" selected>Month to Date</option>
+        <option value="last30">Last 30 Days</option>
+        <option value="lastMonth">Last Month</option>
+        <option value="qtd">Quarter to Date</option>
+      </select>
+      <button id="refreshBtn" style="border:0;border-radius:12px;background:#111827;color:white;padding:11px 16px;font-weight:700;cursor:pointer;">Refresh</button>
+      <div id="dateSummary" class="date-summary">Loading...</div>
+    </section>
+
+    <section class="kpi-grid">
+      <div class="card"><div class="kpi-title">Calls Booked</div><div id="kpiCalls" class="kpi-value">—</div><div class="kpi-note">Mapped sales calls only</div></div>
+      <div class="card"><div class="kpi-title">Website Visitors</div><div id="kpiVisitors" class="kpi-value">—</div><div class="kpi-note">GA4 active users</div></div>
+      <div class="card"><div class="kpi-title">Conversion Rate</div><div id="kpiConversion" class="kpi-value integration-placeholder">Awaiting Integration</div><div class="kpi-note">Bookings + purchases</div></div>
+      <div class="card"><div class="kpi-title">NLP Brochure Downloads</div><div id="kpiBrochure" class="kpi-value integration-placeholder">Awaiting Integration</div><div class="kpi-note">Manual/mock until tracked</div></div>
+      <div class="card"><div class="kpi-title">Pipeline Value</div><div id="kpiPipeline" class="kpi-value">—</div><div class="kpi-note">Active/open since Jan 1, 2025</div></div>
+      <div class="card"><div class="kpi-title">Revenue (Kajabi)</div><div id="kpiRevenue" class="kpi-value integration-placeholder">Awaiting Integration</div><div class="kpi-note">Online purchases + RoomMates subscriptions</div></div>
+      <div class="card"><div class="kpi-title">Deals Won</div><div id="kpiDealsWon" class="kpi-value">—</div><div id="kpiDealsWonValue" class="kpi-subvalue">—</div><div class="kpi-note">HubSpot closed won</div></div>
+      <div class="card"><div class="kpi-title">Referrals</div><div id="kpiReferrals" class="kpi-value">—</div><div class="kpi-note">Referral Factory pending</div></div>
+    </section>
+
+    <section class="accordion">
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Website Performance</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="card">
+            <div class="table-scroll wide-table">
+              <table>
+                <thead><tr><th>Page</th><th>Views</th><th>Active Users</th><th>Views / Active User</th><th>Event Count</th><th>Bounce Rate</th><th>Calendly Clicks</th><th>Kajabi Clicks</th><th>NLP Brochure Downloads</th></tr></thead>
+                <tbody id="websiteTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Calendly</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="grid-3">
+            <div class="card"><h3>Calls Booked by Category/Page (This Month)</h3><div id="callsByCategoryList" class="count-list"></div></div>
+            <div class="card"><h3>Calls Booked by Category/Page (Total Since Nov 1, 2025)</h3><div id="callsByCategoryYtdList" class="count-list"></div></div>
+            <div class="card">
+              <h3>Sales Calls Performance</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Team Member</th><th>Calls Had This Month</th><th>Conversion to deals</th><th>Won</th></tr></thead>
+                  <tbody id="salesCallsPerformanceTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" style="margin-top:20px;">
+            <h3>Calendly Booking Detail</h3>
+            <div class="table-scroll wide-table">
+              <table>
+                <thead><tr><th>Name</th><th>Team Member</th><th>Category/Page</th><th>Sub-Page</th><th>Sub-sub page</th><th>Date Booked</th></tr></thead>
+                <tbody id="callsTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Pathways</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="grid-2">
+            <div class="card">
+              <h3>Revenue Attributed to Pathways</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Sales Amount</th></tr></thead>
+                  <tbody><tr><td>$68,912</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Pathways Sold</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Pathway</th><th>Sold</th></tr></thead>
+                  <tbody>
+                    <tr><td>Self-Development</td><td>5</td></tr>
+                    <tr><td>Coach Training</td><td>1</td></tr>
+                    <tr><td>Executive Support</td><td>4</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Sales Pipeline</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="grid-2">
+            <div class="card">
+              <h3>Deals by Stage</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Stage</th><th>Deals</th></tr></thead>
+                  <tbody id="dealsByStageTable"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Sales Won by Team Member</h3>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Name</th><th>Count</th></tr></thead>
+                  <tbody id="salesWonByTeamTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+          <section class="card" style="margin-top:20px;">
+            <h3>Active Deals</h3>
+            <div class="table-scroll wide-table">
+              <table>
+                <thead><tr><th>Deal owner</th><th>Deal description</th><th>Deal value</th><th>Expected close date</th><th>Discovery call source</th></tr></thead>
+                <tbody id="activeDealsTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Kajabi</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="grid-2">
+            <div class="card"><h3>Revenue by Program / Product</h3><canvas id="revenueByProduct"></canvas></div>
+            <div class="card"><h3>NLP Brochure Downloads by Page</h3><canvas id="brochureDownloadsByPage"></canvas></div>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Referrals</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="grid-2">
+            <div class="card">
+              <h3>Referrals</h3>
+              <div id="referralCount" class="metric-big">—</div>
+              <div class="metric-sub">Referral tracking placeholder</div>
+              <div class="card-note">Webhook or export import pending Referral Factory plan access</div>
+            </div>
+            <div class="card">
+              <h3>Referral Source Detail</h3>
+              <div class="count-list">
+                <div class="count-row"><span class="count-label">No referral data connected yet</span><span class="count-value">0</span></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <script>
+    let charts = {};
+    const chartDefaults = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ boxWidth:12, font:{ size:12 }}}} };
+    const calendlyTeamMembers = ["Madeleine Robinson", "Joseph Scott", "Jay Hedley"];
+    const HUBSPOT_PLACEHOLDER = "Needs HubSpot Integration";
+    const AWAITING_INTEGRATION = "Awaiting Integration";
+    const number = n => Number(n || 0).toLocaleString();
+    const currency = n => new Intl.NumberFormat("en-AU", { style:"currency", currency:"AUD", maximumFractionDigits:0 }).format(Number(n || 0));
+
+    function renderChart(id, type, labels, values, label) {
+      if (charts[id]) charts[id].destroy();
+      charts[id] = new Chart(document.getElementById(id), { type, data:{ labels, datasets:[{ label, data:values }] }, options: chartDefaults });
+    }
+
+    function resizeVisibleCharts() {
+      requestAnimationFrame(() => Object.values(charts).forEach(chart => chart.resize()));
+    }
+
+    function rowsBy(items, key, valueKey) {
+      const map = {};
+      for (const item of items || []) {
+        const label = item[key] || "Unknown";
+        map[label] = (map[label] || 0) + (valueKey ? Number(item[valueKey] || 0) : 1);
+      }
+      return Object.entries(map).map(([label, value]) => ({ label, value }));
+    }
+
+    function renderCountList(id, rows) {
+      const items = [...(rows || [])].sort((a, b) => Number(b.value || 0) - Number(a.value || 0) || String(a.label || "").localeCompare(String(b.label || "")));
+      document.getElementById(id).innerHTML = items.length ? items.map(row => `
+        <div class="count-row"><span class="count-label">${row.label || "Unknown"}</span><span class="count-value">${number(row.value)}</span></div>
+      `).join("") : `<div class="count-row"><span class="count-label">No calls</span><span class="count-value">0</span></div>`;
+    }
+
+    function renderTwoColumnTable(id, rows, emptyLabel) {
+      const items = [...(rows || [])].sort((a, b) => Number(b.value || 0) - Number(a.value || 0) || String(a.label || "").localeCompare(String(b.label || "")));
+      document.getElementById(id).innerHTML = items.length ? items.map(row => `
+        <tr><td>${escapeHtml(row.label || "Unknown")}</td><td>${number(row.value)}</td></tr>
+      `).join("") : `<tr><td>${escapeHtml(emptyLabel)}</td><td>0</td></tr>`;
+    }
+
+    function renderHubSpotPlaceholder(value = HUBSPOT_PLACEHOLDER) {
+      return String(value || "") === HUBSPOT_PLACEHOLDER
+        ? `<span class="integration-placeholder">${HUBSPOT_PLACEHOLDER}</span>`
+        : escapeHtml(value);
+    }
+
+    function buildSalesCallPerformanceRows(calls) {
+      const counts = new Map(calendlyTeamMembers.map(member => [member, 0]));
+      for (const call of calls || []) {
+        const teamMember = call.teamMember || "Unknown";
+        counts.set(teamMember, (counts.get(teamMember) || 0) + 1);
+      }
+      return Array.from(counts.entries()).map(([teamMember, calls]) => ({
+        teamMember,
+        calls,
+        conversionToDeals: HUBSPOT_PLACEHOLDER,
+        won: ""
+      }));
+    }
+
+    function renderSalesCallPerformance(rows) {
+      const items = rows || [];
+      document.getElementById("salesCallsPerformanceTable").innerHTML = items.length ? items.map(row => `
+        <tr>
+          <td>${escapeHtml(row.teamMember || "Unknown")}</td>
+          <td>${number(row.calls)}</td>
+          <td>${renderHubSpotPlaceholder(row.conversionToDeals || HUBSPOT_PLACEHOLDER)}</td>
+          <td>${row.won === undefined || row.won === null ? "" : escapeHtml(row.won)}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="4">No Calendly team members found</td></tr>`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function formatDate(value) {
+      return value ? String(value).slice(0, 10) : "Unknown";
+    }
+
+    function renderActiveDeals(activeDeals) {
+      const rows = activeDeals || [];
+      document.getElementById("activeDealsTable").innerHTML = rows.length ? rows.map(deal => `
+        <tr>
+          <td>${escapeHtml(deal.dealOwner || "Unknown")}</td>
+          <td>${escapeHtml(deal.dealDescription || "Unknown")}</td>
+          <td>${currency(deal.dealValue || 0)}</td>
+          <td>${escapeHtml(formatDate(deal.expectedCloseDate))}</td>
+          <td>${escapeHtml(deal.discoveryCallSource || "Unknown")}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="5">No active deals found</td></tr>`;
+    }
+
+    async function loadDashboard() {
+      const status = document.getElementById("status");
+      status.style.display = "block";
+      status.textContent = "Loading dashboard data...";
+      const range = document.getElementById("dateRange").value;
+      document.getElementById("dateSummary").textContent = `Date Range: ${document.getElementById("dateRange").selectedOptions[0].text}`;
+
+      try {
+        const res = await fetch(`/.netlify/functions/dashboard-data?range=${range}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Dashboard API failed");
+
+        document.getElementById("kpiCalls").textContent = number(data.kpis.callsBooked);
+        document.getElementById("kpiVisitors").textContent = number(data.kpis.websiteVisitors);
+        document.getElementById("kpiConversion").textContent = AWAITING_INTEGRATION;
+        document.getElementById("kpiBrochure").textContent = AWAITING_INTEGRATION;
+        document.getElementById("kpiPipeline").textContent = currency(data.kpis.pipelineValue);
+        document.getElementById("kpiRevenue").textContent = AWAITING_INTEGRATION;
+        document.getElementById("kpiDealsWon").textContent = number(data.kpis.dealsWon);
+        document.getElementById("kpiDealsWonValue").textContent = `${currency(data.kpis.dealsWonValue)} won value`;
+        document.getElementById("kpiReferrals").textContent = number(data.kpis.referrals);
+        document.getElementById("referralCount").textContent = number(data.kpis.referrals);
+
+        document.getElementById("websiteTable").innerHTML = (data.websitePages || []).map(p => `
+          <tr><td>${p.page}</td><td>${number(p.views)}</td><td>${number(p.activeUsers)}</td><td>${Number(p.viewsPerActiveUser || 0).toFixed(2)}</td><td>${number(p.eventCount)}</td><td>${Number(p.bounceRate || 0).toFixed(1)}%</td><td>${number(p.outboundCalendlyClicks)}</td><td>${number(p.outboundKajabiClicks)}</td><td>${number(p.brochureDownloads)}</td></tr>
+        `).join("");
+
+        document.getElementById("callsTable").innerHTML = (data.calls || []).map(c => `
+          <tr><td>${c.name || "Unknown"}</td><td>${c.teamMember || "Unknown"}</td><td>${c.category || ""}</td><td>${c.subCategory || ""}</td><td>${c.subSubCategory || ""}</td><td>${c.date || ""}</td></tr>
+        `).join("");
+
+        const callsByCategory = data.charts.callsByCategory || rowsBy(data.calls, "category");
+        renderCountList("callsByCategoryList", callsByCategory);
+        renderCountList("callsByCategoryYtdList", data.charts.callsByCategoryYtd || []);
+        renderSalesCallPerformance(buildSalesCallPerformanceRows(data.calls || []));
+        const dealsByStage = data.charts.dealsByStage || rowsBy(data.deals, "stage");
+        renderTwoColumnTable("dealsByStageTable", dealsByStage, "No deals");
+        const salesWonByTeam = rowsBy((data.deals || []).filter(deal => deal.stage === "Closed Won"), "owner");
+        renderTwoColumnTable("salesWonByTeamTable", salesWonByTeam, "No won sales");
+        renderActiveDeals(data.activeDeals || []);
+        const revenueByProduct = data.charts.revenueByProduct || rowsBy(data.purchases, "product", "amount");
+        renderChart("revenueByProduct", "doughnut", revenueByProduct.map(x => x.label), revenueByProduct.map(x => x.value), "Revenue");
+        const brochureByPage = data.charts.brochureDownloadsByPage || [];
+        renderChart("brochureDownloadsByPage", "bar", brochureByPage.map(x => x.label), brochureByPage.map(x => x.value), "Downloads");
+
+        if (data.meta?.warnings?.length) {
+          status.style.display = "block";
+          status.textContent = data.meta.warnings.join(" | ");
+        } else {
+          status.style.display = "none";
+        }
+      } catch (err) {
+        status.style.display = "block";
+        status.textContent = "Error loading dashboard: " + err.message;
+      }
+    }
+
+    document.getElementById("dateRange").addEventListener("change", loadDashboard);
+    document.getElementById("refreshBtn").addEventListener("click", loadDashboard);
+    document.querySelectorAll(".accordion-panel").forEach(panel => {
+      panel.addEventListener("toggle", () => {
+        if (panel.open) resizeVisibleCharts();
+      });
+    });
+    loadDashboard();
+  </script>
+</body>
+</html>

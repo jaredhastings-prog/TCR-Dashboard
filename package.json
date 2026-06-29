@@ -1,0 +1,8 @@
+{
+  "name": "tcr-dashboard",
+  "version": "26.0.0",
+  "private": true,
+  "dependencies": {
+    "@netlify/blobs": "^8.2.0"
+  }
+}
