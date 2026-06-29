@@ -106,17 +106,26 @@ exports.handler = async (event) => {
   const calendlyHeaders = { Authorization: `Bearer ${calendlyKey}` };
 
   // Resolve event type (may be a URI string or an embedded object)
-  let event_type = typeof eventTypeRaw === "string"
-    ? await fetch(eventTypeRaw, { headers: calendlyHeaders }).then(r => r.json()).then(d => d.resource || d)
-    : eventTypeRaw;
+  let event_type = eventTypeRaw;
+  if (typeof eventTypeRaw === "string") {
+    const etRes = await fetch(eventTypeRaw, { headers: calendlyHeaders });
+    const etData = await etRes.json();
+    console.log("Raw event type API response:", JSON.stringify(etData));
+    event_type = etData.resource || etData;
+  }
 
   // Resolve scheduled event (may be a URI string or an embedded object)
-  let scheduledEvent = typeof scheduledEventRaw === "string"
-    ? await fetch(scheduledEventRaw, { headers: calendlyHeaders }).then(r => r.json()).then(d => d.resource || d)
-    : scheduledEventRaw;
+  let scheduledEvent = scheduledEventRaw;
+  if (typeof scheduledEventRaw === "string") {
+    const seRes = await fetch(scheduledEventRaw, { headers: calendlyHeaders });
+    const seData = await seRes.json();
+    event_type = event_type || seData.resource?.event_type;
+    scheduledEvent = seData.resource || seData;
+  }
 
-  console.log("Resolved event type:", JSON.stringify({ slug: event_type?.slug, name: event_type?.name }));
-  console.log("Resolved scheduled event:", JSON.stringify({ start_time: scheduledEvent?.start_time, assigned_to: scheduledEvent?.event_memberships }));
+  console.log("Resolved event type:", JSON.stringify({ slug: event_type?.slug, name: event_type?.name, uri: event_type?.uri }));
+  console.log("Resolved scheduled event start_time:", scheduledEvent?.start_time);
+  console.log("Resolved assigned_to:", JSON.stringify(scheduledEvent?.assigned_to));
 
   // Use the slug directly from Calendly if available, fall back to deriving from name
   const directSlug = event_type?.slug || null;
@@ -139,11 +148,12 @@ exports.handler = async (event) => {
   console.log(`Processing booking — name: "${inviteeName}", event: "${eventSlug}", date: ${closeDate}, utm: ${utmSource}`);
 
   // Map Calendly host → HubSpot owner ID
-  // assigned_to is present in webhook payload; event_memberships when fetched via API
-  const hostName =
-    (scheduledEvent?.assigned_to || [])[0] ||
-    (scheduledEvent?.event_memberships || [])[0]?.user_name ||
-    null;
+  // assigned_to can be strings or objects depending on API version
+  const assignedTo = scheduledEvent?.assigned_to || scheduledEvent?.event_memberships || [];
+  const firstHost = assignedTo[0];
+  const hostName = typeof firstHost === "string"
+    ? firstHost
+    : firstHost?.user_name || null;
   const hubspotOwnerName = hostName ? CALENDLY_HOST_TO_HUBSPOT_NAME[hostName] : null;
   const ownerId = hubspotOwnerName
     ? await getHubSpotOwnerIdByName(hubspotKey, hubspotOwnerName)
