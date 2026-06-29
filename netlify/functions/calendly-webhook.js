@@ -3,7 +3,7 @@ const { slugFrom, mapCalendlySlug } = require("./_shared");
 
 const HUBSPOT_API_BASE = "https://api.hubapi.com";
 
-// Maps Calendly host names (as returned by assigned_to) to HubSpot owner full names.
+// Maps Calendly host names to HubSpot owner full names.
 const CALENDLY_HOST_TO_HUBSPOT_NAME = {
   "Jared Hastings":     "Jared Hastings",
   "Jay Hedley":         "Jay Hedley",
@@ -39,25 +39,13 @@ async function getSalesPipelineStage(apiKey) {
   const res = await fetch(`${HUBSPOT_API_BASE}/crm/v3/pipelines/deals`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
-  if (!res.ok) {
-    console.error("HubSpot pipelines API error:", res.status, await res.text());
-    return null;
-  }
+  if (!res.ok) return null;
   const data = await res.json();
-
-  console.log("HubSpot pipelines found:", JSON.stringify(
-    (data.results || []).map(p => ({
-      id: p.id,
-      label: p.label,
-      stages: (p.stages || []).map(s => ({ id: s.id, label: s.label })),
-    }))
-  ));
-
   for (const pipeline of data.results || []) {
-    if (pipeline.label.toLowerCase().includes("sales")) {
+    if (pipeline.label.toLowerCase().includes("sales pipeline") ||
+        pipeline.label.toLowerCase() === "sales pipeline") {
       for (const stage of pipeline.stages || []) {
-        if (stage.label.toLowerCase().includes("call booked") ||
-            stage.label.toLowerCase().includes("call booked")) {
+        if (stage.label.toLowerCase().includes("call booked")) {
           return { pipelineId: pipeline.id, stageId: stage.id, pipelineLabel: pipeline.label, stageLabel: stage.label };
         }
       }
@@ -80,9 +68,7 @@ exports.handler = async (event) => {
   }
 
   const rawBody = event.body || "";
-  const signatureHeader = event.headers["calendly-webhook-signature"];
-
-  if (!verifySignature(rawBody, signatureHeader, webhookSecret)) {
+  if (!verifySignature(rawBody, event.headers["calendly-webhook-signature"], webhookSecret)) {
     return { statusCode: 401, body: "Invalid webhook signature" };
   }
 
@@ -93,89 +79,51 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: "Invalid JSON" };
   }
 
-  console.log("Calendly webhook received — event type:", payload.event);
-  console.log("Full payload keys:", JSON.stringify(Object.keys(payload.payload || {})));
-  console.log("Full payload:", JSON.stringify(payload.payload || {}));
-
   if (payload.event !== "invitee.created") {
     return { statusCode: 200, body: JSON.stringify({ ignored: true, reason: "Not invitee.created" }) };
   }
 
-  const { event_type: eventTypeRaw, event: scheduledEventRaw, invitee } = payload.payload || {};
+  // Calendly payload structure (confirmed from live logs):
+  // payload.payload contains the invitee directly, with scheduled_event embedded as an object
+  const p = payload.payload || {};
+  const scheduledEvent = p.scheduled_event || {};
 
-  // Calendly sends URIs as strings — fetch the actual objects from the API
-  const calendlyKey = process.env.CALENDLY_API_KEY;
-  const calendlyHeaders = { Authorization: `Bearer ${calendlyKey}` };
+  // Invitee name and tracking are at the top level of p
+  const inviteeName = p.name || "Unknown";
+  const utmSource = p.tracking?.utm_source || null;
 
-  // Resolve event type (may be a URI string or an embedded object)
-  let event_type = eventTypeRaw;
-  if (typeof eventTypeRaw === "string") {
-    const etRes = await fetch(eventTypeRaw, { headers: calendlyHeaders });
-    const etData = await etRes.json();
-    console.log("Raw event type API response:", JSON.stringify(etData));
-    event_type = etData.resource || etData;
-  }
+  // Event name is on the scheduled_event object
+  const eventName = scheduledEvent.name || "";
+  const eventSlug = slugFrom(eventName);
 
-  // Resolve scheduled event (may be a URI string or an embedded object)
-  let scheduledEvent = scheduledEventRaw;
-  if (typeof scheduledEventRaw === "string") {
-    const seRes = await fetch(scheduledEventRaw, { headers: calendlyHeaders });
-    const seData = await seRes.json();
-    event_type = event_type || seData.resource?.event_type;
-    scheduledEvent = seData.resource || seData;
-  }
+  console.log(`Calendly booking — invitee: "${inviteeName}", event: "${eventName}", slug: "${eventSlug}"`);
 
-  console.log("Resolved event type:", JSON.stringify({ slug: event_type?.slug, name: event_type?.name, uri: event_type?.uri }));
-  console.log("Resolved scheduled event start_time:", scheduledEvent?.start_time);
-  console.log("Resolved assigned_to:", JSON.stringify(scheduledEvent?.assigned_to));
-
-  // Use the slug directly from Calendly if available, fall back to deriving from name
-  const directSlug = event_type?.slug || null;
-  const derivedSlug = slugFrom(event_type?.name || "");
-  const eventSlug = directSlug || derivedSlug;
-
-  console.log(`Calendly event slug: "${eventSlug}" (direct: "${directSlug}", derived: "${derivedSlug}")`);
-
-  const mapped = mapCalendlySlug(eventSlug) || mapCalendlySlug(derivedSlug);
+  const mapped = mapCalendlySlug(eventSlug);
   if (!mapped) {
-    console.log(`Untracked Calendly event — slug: "${eventSlug}", name: "${event_type?.name}" — skipping HubSpot deal creation`);
+    console.log(`Untracked event slug "${eventSlug}" — skipping HubSpot deal creation`);
     return { statusCode: 200, body: JSON.stringify({ ignored: true, reason: `Event not tracked: ${eventSlug}` }) };
   }
 
-  const inviteeName = invitee?.name || "Unknown";
-  const startTime = scheduledEvent?.start_time;
-  const closeDate = startTime ? new Date(startTime).toISOString().split("T")[0] : null;
-  const utmSource = invitee?.tracking?.utm_source || null;
+  // Start time → close date
+  const closeDate = scheduledEvent.start_time
+    ? new Date(scheduledEvent.start_time).toISOString().split("T")[0]
+    : null;
 
-  console.log(`Processing booking — name: "${inviteeName}", event: "${eventSlug}", date: ${closeDate}, utm: ${utmSource}`);
-
-  // Map Calendly host → HubSpot owner ID
-  // assigned_to can be strings or objects depending on API version
-  const assignedTo = scheduledEvent?.assigned_to || scheduledEvent?.event_memberships || [];
-  const firstHost = assignedTo[0];
-  const hostName = typeof firstHost === "string"
-    ? firstHost
-    : firstHost?.user_name || null;
+  // Host from event_memberships
+  const hostName = (scheduledEvent.event_memberships || [])[0]?.user_name || null;
   const hubspotOwnerName = hostName ? CALENDLY_HOST_TO_HUBSPOT_NAME[hostName] : null;
   const ownerId = hubspotOwnerName
     ? await getHubSpotOwnerIdByName(hubspotKey, hubspotOwnerName)
     : null;
 
-  if (hostName && !ownerId) {
-    console.warn(`Could not resolve HubSpot owner for Calendly host: "${hostName}"`);
-  }
+  console.log(`Host: "${hostName}", HubSpot owner resolved: ${ownerId ? "yes" : "no"}`);
 
-  // Resolve Sales Pipeline + "Call Booked" stage IDs
+  // Resolve Sales Pipeline + "Call Booked" stage
   const pipelineStage = await getSalesPipelineStage(hubspotKey);
   if (!pipelineStage) {
-    console.error('Could not find Sales Pipeline with a "Call Booked" stage — check /api/hubspot-pipeline-debug for available pipelines and stages');
-    return {
-      statusCode: 502,
-      body: 'Could not find "Call Booked" stage in HubSpot Sales Pipeline. Visit /api/hubspot-pipeline-debug to see available stages.',
-    };
+    console.error('Could not find "Sales Pipeline" with "Call Booked" stage in HubSpot');
+    return { statusCode: 502, body: 'HubSpot pipeline/stage not found. Check /api/hubspot-pipeline-debug.' };
   }
-
-  console.log(`Using pipeline: "${pipelineStage.pipelineLabel}", stage: "${pipelineStage.stageLabel}"`);
 
   const properties = {
     dealname: inviteeName,
@@ -184,7 +132,7 @@ exports.handler = async (event) => {
     ...(closeDate ? { closedate: closeDate } : {}),
     ...(ownerId ? { hubspot_owner_id: String(ownerId) } : {}),
     description: [
-      `Calendly event: ${event_type?.name || eventSlug}`,
+      `Calendly event: ${eventName}`,
       `Category: ${mapped.category}${mapped.subCategory ? ` › ${mapped.subCategory}` : ""}`,
       utmSource ? `UTM source: ${utmSource}` : null,
       hostName ? `Calendly host: ${hostName}` : null,
@@ -207,7 +155,7 @@ exports.handler = async (event) => {
   }
 
   const deal = await createRes.json();
-  console.log(`HubSpot deal created — id: ${deal.id}, name: "${inviteeName}", pipeline: "${pipelineStage.pipelineLabel}", stage: "${pipelineStage.stageLabel}"`);
+  console.log(`HubSpot deal created — id: ${deal.id}, name: "${inviteeName}", stage: "${pipelineStage.stageLabel}"`);
 
   return {
     statusCode: 200,
