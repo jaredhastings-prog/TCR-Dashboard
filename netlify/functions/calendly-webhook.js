@@ -94,6 +94,8 @@ exports.handler = async (event) => {
   }
 
   console.log("Calendly webhook received — event type:", payload.event);
+  console.log("Full payload keys:", JSON.stringify(Object.keys(payload.payload || {})));
+  console.log("Full payload:", JSON.stringify(payload.payload || {}));
 
   if (payload.event !== "invitee.created") {
     return { statusCode: 200, body: JSON.stringify({ ignored: true, reason: "Not invitee.created" }) };
