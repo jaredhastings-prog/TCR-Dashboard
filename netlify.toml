@@ -28,6 +28,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/calendly-webhook-setup"
+  to = "/.netlify/functions/calendly-webhook-setup"
+  status = 200
+
+[[redirects]]
   from = "/api/calendly-debug"
   to = "/.netlify/functions/calendly-debug"
   status = 200
