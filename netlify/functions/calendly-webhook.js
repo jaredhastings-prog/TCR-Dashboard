@@ -4,7 +4,6 @@ const { slugFrom, mapCalendlySlug } = require("./_shared");
 const HUBSPOT_API_BASE = "https://api.hubapi.com";
 
 // Maps Calendly host names (as returned by assigned_to) to HubSpot owner full names.
-// HubSpot owner IDs are resolved dynamically by matching these names against the HubSpot owners API.
 const CALENDLY_HOST_TO_HUBSPOT_NAME = {
   "Jared Hastings":     "Jared Hastings",
   "Jay Hedley":         "Jay Hedley",
@@ -13,9 +12,8 @@ const CALENDLY_HOST_TO_HUBSPOT_NAME = {
 };
 
 function verifySignature(rawBody, signatureHeader, secret) {
-  if (!secret) return true; // skip verification if secret not configured
+  if (!secret) return true;
   if (!signatureHeader) return false;
-  // Calendly format: t=TIMESTAMP,v1=HMAC_HEX
   const parts = Object.fromEntries(signatureHeader.split(",").map(p => p.split("=")));
   if (!parts.t || !parts.v1) return false;
   const expected = createHmac("sha256", secret)
@@ -41,13 +39,26 @@ async function getSalesPipelineStage(apiKey) {
   const res = await fetch(`${HUBSPOT_API_BASE}/crm/v3/pipelines/deals`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.error("HubSpot pipelines API error:", res.status, await res.text());
+    return null;
+  }
   const data = await res.json();
+
+  console.log("HubSpot pipelines found:", JSON.stringify(
+    (data.results || []).map(p => ({
+      id: p.id,
+      label: p.label,
+      stages: (p.stages || []).map(s => ({ id: s.id, label: s.label })),
+    }))
+  ));
+
   for (const pipeline of data.results || []) {
     if (pipeline.label.toLowerCase().includes("sales")) {
       for (const stage of pipeline.stages || []) {
-        if (stage.label.toLowerCase().includes("call booked")) {
-          return { pipelineId: pipeline.id, stageId: stage.id };
+        if (stage.label.toLowerCase().includes("call booked") ||
+            stage.label.toLowerCase().includes("call booked")) {
+          return { pipelineId: pipeline.id, stageId: stage.id, pipelineLabel: pipeline.label, stageLabel: stage.label };
         }
       }
     }
@@ -82,30 +93,33 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: "Invalid JSON" };
   }
 
-  // Only process new bookings
+  console.log("Calendly webhook received — event type:", payload.event);
+
   if (payload.event !== "invitee.created") {
     return { statusCode: 200, body: JSON.stringify({ ignored: true, reason: "Not invitee.created" }) };
   }
 
   const { event_type, event: scheduledEvent, invitee } = payload.payload || {};
 
-  // Check if this event type is tracked in our Calendly event map
-  const eventSlug = slugFrom(event_type?.name || "");
-  const mapped = mapCalendlySlug(eventSlug);
+  // Use the slug directly from Calendly if available, fall back to deriving from name
+  const directSlug = event_type?.slug || null;
+  const derivedSlug = slugFrom(event_type?.name || "");
+  const eventSlug = directSlug || derivedSlug;
+
+  console.log(`Calendly event slug: "${eventSlug}" (direct: "${directSlug}", derived: "${derivedSlug}")`);
+
+  const mapped = mapCalendlySlug(eventSlug) || mapCalendlySlug(derivedSlug);
   if (!mapped) {
-    console.log(`Untracked Calendly event type: ${eventSlug} — skipping HubSpot deal creation`);
+    console.log(`Untracked Calendly event — slug: "${eventSlug}", name: "${event_type?.name}" — skipping HubSpot deal creation`);
     return { statusCode: 200, body: JSON.stringify({ ignored: true, reason: `Event not tracked: ${eventSlug}` }) };
   }
 
-  // Invitee name becomes the deal name
   const inviteeName = invitee?.name || "Unknown";
-
-  // Scheduled call date becomes the close date (YYYY-MM-DD)
   const startTime = scheduledEvent?.start_time;
   const closeDate = startTime ? new Date(startTime).toISOString().split("T")[0] : null;
-
-  // UTM source from Calendly tracking
   const utmSource = invitee?.tracking?.utm_source || null;
+
+  console.log(`Processing booking — name: "${inviteeName}", event: "${eventSlug}", date: ${closeDate}, utm: ${utmSource}`);
 
   // Map Calendly host → HubSpot owner ID
   const hostName = (scheduledEvent?.assigned_to || [])[0] || null;
@@ -121,18 +135,21 @@ exports.handler = async (event) => {
   // Resolve Sales Pipeline + "Call Booked" stage IDs
   const pipelineStage = await getSalesPipelineStage(hubspotKey);
   if (!pipelineStage) {
-    console.error('Could not find "Sales Pipeline" with a "Call Booked" stage in HubSpot');
-    return { statusCode: 502, body: 'HubSpot pipeline/stage lookup failed. Ensure a "Sales Pipeline" with a "Call Booked" stage exists.' };
+    console.error('Could not find Sales Pipeline with a "Call Booked" stage — check /api/hubspot-pipeline-debug for available pipelines and stages');
+    return {
+      statusCode: 502,
+      body: 'Could not find "Call Booked" stage in HubSpot Sales Pipeline. Visit /api/hubspot-pipeline-debug to see available stages.',
+    };
   }
 
-  // Build deal properties
+  console.log(`Using pipeline: "${pipelineStage.pipelineLabel}", stage: "${pipelineStage.stageLabel}"`);
+
   const properties = {
     dealname: inviteeName,
     pipeline: pipelineStage.pipelineId,
     dealstage: pipelineStage.stageId,
     ...(closeDate ? { closedate: closeDate } : {}),
     ...(ownerId ? { hubspot_owner_id: String(ownerId) } : {}),
-    // Calendly event type stored as a note in the deal description
     description: [
       `Calendly event: ${event_type?.name || eventSlug}`,
       `Category: ${mapped.category}${mapped.subCategory ? ` › ${mapped.subCategory}` : ""}`,
@@ -157,7 +174,7 @@ exports.handler = async (event) => {
   }
 
   const deal = await createRes.json();
-  console.log(`HubSpot deal created — id: ${deal.id}, name: "${inviteeName}", stage: Call Booked`);
+  console.log(`HubSpot deal created — id: ${deal.id}, name: "${inviteeName}", pipeline: "${pipelineStage.pipelineLabel}", stage: "${pipelineStage.stageLabel}"`);
 
   return {
     statusCode: 200,
@@ -166,6 +183,8 @@ exports.handler = async (event) => {
       dealId: deal.id,
       dealName: inviteeName,
       category: mapped.category,
+      pipeline: pipelineStage.pipelineLabel,
+      stage: pipelineStage.stageLabel,
     }),
   };
 };
