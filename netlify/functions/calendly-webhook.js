@@ -99,7 +99,24 @@ exports.handler = async (event) => {
     return { statusCode: 200, body: JSON.stringify({ ignored: true, reason: "Not invitee.created" }) };
   }
 
-  const { event_type, event: scheduledEvent, invitee } = payload.payload || {};
+  const { event_type: eventTypeRaw, event: scheduledEventRaw, invitee } = payload.payload || {};
+
+  // Calendly sends URIs as strings — fetch the actual objects from the API
+  const calendlyKey = process.env.CALENDLY_API_KEY;
+  const calendlyHeaders = { Authorization: `Bearer ${calendlyKey}` };
+
+  // Resolve event type (may be a URI string or an embedded object)
+  let event_type = typeof eventTypeRaw === "string"
+    ? await fetch(eventTypeRaw, { headers: calendlyHeaders }).then(r => r.json()).then(d => d.resource || d)
+    : eventTypeRaw;
+
+  // Resolve scheduled event (may be a URI string or an embedded object)
+  let scheduledEvent = typeof scheduledEventRaw === "string"
+    ? await fetch(scheduledEventRaw, { headers: calendlyHeaders }).then(r => r.json()).then(d => d.resource || d)
+    : scheduledEventRaw;
+
+  console.log("Resolved event type:", JSON.stringify({ slug: event_type?.slug, name: event_type?.name }));
+  console.log("Resolved scheduled event:", JSON.stringify({ start_time: scheduledEvent?.start_time, assigned_to: scheduledEvent?.event_memberships }));
 
   // Use the slug directly from Calendly if available, fall back to deriving from name
   const directSlug = event_type?.slug || null;
@@ -122,7 +139,11 @@ exports.handler = async (event) => {
   console.log(`Processing booking — name: "${inviteeName}", event: "${eventSlug}", date: ${closeDate}, utm: ${utmSource}`);
 
   // Map Calendly host → HubSpot owner ID
-  const hostName = (scheduledEvent?.assigned_to || [])[0] || null;
+  // assigned_to is present in webhook payload; event_memberships when fetched via API
+  const hostName =
+    (scheduledEvent?.assigned_to || [])[0] ||
+    (scheduledEvent?.event_memberships || [])[0]?.user_name ||
+    null;
   const hubspotOwnerName = hostName ? CALENDLY_HOST_TO_HUBSPOT_NAME[hostName] : null;
   const ownerId = hubspotOwnerName
     ? await getHubSpotOwnerIdByName(hubspotKey, hubspotOwnerName)
