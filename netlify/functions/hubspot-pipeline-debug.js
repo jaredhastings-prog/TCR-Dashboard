@@ -8,9 +8,9 @@ exports.handler = async (event) => {
     return { statusCode: 403, body: "Forbidden — pass ?secret=YOUR_SETUP_SECRET" };
   }
 
-  const hubspotKey = process.env.HUBSPOT_API_KEY;
+  const hubspotKey = process.env.HUBSPOT_ACCESS_TOKEN;
   if (!hubspotKey) {
-    return { statusCode: 500, body: "HUBSPOT_API_KEY not configured" };
+    return { statusCode: 500, body: "HUBSPOT_ACCESS_TOKEN not configured" };
   }
 
   const res = await fetch("https://api.hubapi.com/crm/v3/pipelines/deals", {
