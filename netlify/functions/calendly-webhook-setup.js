@@ -1,17 +1,17 @@
-// One-time setup endpoint — call this once to register the Calendly webhook subscription.
-// Protect with SETUP_SECRET env var: GET /api/calendly-webhook-setup?secret=YOUR_SECRET
-// After running, paste the returned signing_key into Netlify env as CALENDLY_WEBHOOK_SECRET.
+// Setup endpoint for Calendly webhook registration.
+// Pass ?secret=YOUR_SETUP_SECRET to authenticate.
+// Pass ?reset=true to delete the existing webhook and re-register it.
 
 const CALENDLY_API_BASE = "https://api.calendly.com";
 const SITE_URL = "https://comforting-cajeta-2d6136.netlify.app";
-const WEBHOOK_URL = `${SITE_URL}/api/calendly-webhook`;
+// Use the direct function URL to bypass the redirect and edge function
+const WEBHOOK_URL = `${SITE_URL}/.netlify/functions/calendly-webhook`;
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "GET") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
-  // Basic protection so this can't be triggered by anyone
   const setupSecret = process.env.SETUP_SECRET;
   if (setupSecret && event.queryStringParameters?.secret !== setupSecret) {
     return { statusCode: 403, body: "Forbidden — pass ?secret=YOUR_SETUP_SECRET" };
@@ -22,46 +22,57 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: "CALENDLY_API_KEY not configured" };
   }
 
-  // Step 1: Get current user + org URI
+  const reset = event.queryStringParameters?.reset === "true";
+
+  // Step 1: Get org URI
   const meRes = await fetch(`${CALENDLY_API_BASE}/users/me`, {
     headers: { Authorization: `Bearer ${calendlyKey}` },
   });
   if (!meRes.ok) {
-    const err = await meRes.text();
-    return { statusCode: 502, body: `Calendly /users/me failed: ${err}` };
+    return { statusCode: 502, body: `Calendly /users/me failed: ${await meRes.text()}` };
   }
   const me = await meRes.json();
   const orgUri = me.resource?.current_organization;
-  const userUri = me.resource?.uri;
 
   if (!orgUri) {
     return { statusCode: 502, body: "Could not determine Calendly organisation URI" };
   }
 
-  // Step 2: Check for existing webhook subscriptions to avoid duplicates
+  // Step 2: List existing webhook subscriptions
   const listRes = await fetch(
     `${CALENDLY_API_BASE}/webhook_subscriptions?organization=${encodeURIComponent(orgUri)}&scope=organization`,
     { headers: { Authorization: `Bearer ${calendlyKey}` } }
   );
-  if (listRes.ok) {
-    const listData = await listRes.json();
-    const existing = (listData.collection || []).find(w => w.callback_url === WEBHOOK_URL);
-    if (existing) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          status: "already_registered",
-          webhook_url: WEBHOOK_URL,
-          calendly_webhook_uri: existing.uri,
-          state: existing.state,
-          message: "Webhook already registered. No action taken.",
-        }, null, 2),
-        headers: { "Content-Type": "application/json" },
-      };
+  const listData = listRes.ok ? await listRes.json() : { collection: [] };
+  const existing = (listData.collection || []).find(
+    w => w.callback_url === WEBHOOK_URL || w.callback_url.includes("calendly-webhook")
+  );
+
+  // Step 3: Delete existing webhook if reset requested
+  if (existing && reset) {
+    const delRes = await fetch(existing.uri, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${calendlyKey}` },
+    });
+    if (!delRes.ok && delRes.status !== 404) {
+      return { statusCode: 502, body: `Failed to delete existing webhook: ${await delRes.text()}` };
     }
+    console.log(`Deleted existing webhook: ${existing.uri}`);
+  } else if (existing && !reset) {
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "already_registered",
+        webhook_url: existing.callback_url,
+        calendly_webhook_uri: existing.uri,
+        state: existing.state,
+        message: "Webhook already registered. To delete and re-register, add ?reset=true to the URL.",
+      }, null, 2),
+    };
   }
 
-  // Step 3: Create the webhook subscription
+  // Step 4: Register the webhook — organisation scope only, no user field
   const createRes = await fetch(`${CALENDLY_API_BASE}/webhook_subscriptions`, {
     method: "POST",
     headers: {
@@ -72,7 +83,6 @@ exports.handler = async (event) => {
       url: WEBHOOK_URL,
       events: ["invitee.created", "invitee.canceled"],
       organization: orgUri,
-      user: userUri,
       scope: "organization",
     }),
   });
@@ -82,24 +92,19 @@ exports.handler = async (event) => {
   if (!createRes.ok) {
     return {
       statusCode: 502,
-      body: JSON.stringify({ error: "Webhook registration failed", details: createData }, null, 2),
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Webhook registration failed", details: createData }, null, 2),
     };
   }
 
-  const signingKey = createData.resource?.signing_key;
-
   return {
     statusCode: 200,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       status: "registered",
       webhook_url: WEBHOOK_URL,
       calendly_webhook_uri: createData.resource?.uri,
-      next_step: signingKey
-        ? `Go to Netlify → Site configuration → Environment variables and add: CALENDLY_WEBHOOK_SECRET = ${signingKey}`
-        : "No signing key returned — check Calendly dashboard to confirm registration.",
-      signing_key: signingKey || null,
+      signing_key: createData.resource?.signing_key || null,
     }, null, 2),
-    headers: { "Content-Type": "application/json" },
   };
 };
