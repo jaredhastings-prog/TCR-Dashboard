@@ -71,11 +71,11 @@ exports.handler = async (event) => {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
-  const hubspotKey = process.env.HUBSPOT_API_KEY;
+  const hubspotKey = process.env.HUBSPOT_ACCESS_TOKEN;
   const webhookSecret = process.env.CALENDLY_WEBHOOK_SECRET;
 
   if (!hubspotKey) {
-    console.error("HUBSPOT_API_KEY not configured");
+    console.error("HUBSPOT_ACCESS_TOKEN not configured");
     return { statusCode: 500, body: "HubSpot API key not configured" };
   }
 
