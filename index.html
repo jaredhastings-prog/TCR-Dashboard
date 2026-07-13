@@ -34,10 +34,12 @@
     .kpi-delta { font-size:12px; font-weight:800; padding:2px 8px; border-radius:999px; white-space:nowrap; }
     .kpi-delta.up { background:#ecfdf5; color:#047857; }
     .kpi-delta.down { background:#fef2f2; color:#b91c1c; }
-    .period-banner { display:flex; flex-wrap:wrap; gap:8px 24px; align-items:baseline; background:#111827; color:#fff; border-radius:20px; padding:16px 20px; margin:0 0 24px; }
-    .period-banner .period-label { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#9ca3af; }
-    .period-banner .period-value { font-size:18px; font-weight:800; }
-    .period-banner .period-compare { font-size:13px; color:#d1d5db; margin-left:auto; }
+    .period-nav-label { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#9ca3af; flex:0 0 auto; }
+    .month-nav { display:flex; align-items:center; gap:4px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; min-width:0; flex:1 1 auto; }
+    .month-nav::-webkit-scrollbar { display:none; }
+    .month-pill { flex:0 0 auto; padding:8px 16px; border-radius:999px; font-size:14px; font-weight:600; color:#374151; background:transparent; border:1px solid transparent; cursor:pointer; font-family:inherit; transition:background .12s, color .12s; }
+    .month-pill:hover { background:#f3f4f6; color:#111827; }
+    .month-pill.active { background:#111827; color:#fff; border-color:#111827; font-weight:700; }
     .utm-not-tracked { color:#9ca3af; font-style:italic; }
     .section-title { font-size:22px; margin:32px 0 16px; }
     .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }
@@ -80,6 +82,8 @@
       .controls{align-items:stretch; gap:10px; padding:14px; border-radius:16px; margin:16px 0 20px;}
       .controls label,.date-summary{width:100%; margin-left:0;}
       .controls select,.controls input,.controls button{width:100%; min-height:44px;}
+      .month-nav{width:100%; flex:1 1 100%;}
+      .month-pill{min-height:40px;}
       .kpi-grid{grid-template-columns:1fr; gap:12px; margin-bottom:20px;}
       .card{padding:16px; border-radius:16px;}
       .kpi-title{font-size:12px; line-height:1.3;}
@@ -128,22 +132,11 @@
     <div id="status" class="status"></div>
 
     <section class="controls">
-      <label for="dateRange">Date Range</label>
-      <select id="dateRange">
-        <option value="mtd" selected>Month to Date</option>
-        <option value="last30">Last 30 Days</option>
-        <option value="lastMonth">Last Month</option>
-        <option value="qtd">Quarter to Date</option>
-      </select>
-      <button id="refreshBtn" style="border:0;border-radius:12px;background:#111827;color:white;padding:11px 16px;font-weight:700;cursor:pointer;">Refresh</button>
+      <span class="period-nav-label">Period</span>
+      <div id="monthNav" class="month-nav" role="navigation" aria-label="Select reporting month"></div>
+      <button id="refreshBtn" style="border:0;border-radius:12px;background:#111827;color:white;padding:11px 16px;font-weight:700;cursor:pointer;flex:0 0 auto;">Refresh</button>
       <div id="dateSummary" class="date-summary">Loading...</div>
     </section>
-
-    <div id="periodBanner" class="period-banner" style="display:none;">
-      <span class="period-label">Reporting Period</span>
-      <span id="periodValue" class="period-value">—</span>
-      <span id="periodCompare" class="period-compare"></span>
-    </div>
 
     <section class="kpi-grid">
       <div class="card"><div class="kpi-head"><div class="kpi-title">Calls Booked</div><span id="kpiCallsDelta" class="kpi-delta" style="display:none;"></span></div><div id="kpiCalls" class="kpi-value">—</div><div class="kpi-note">Mapped sales calls only</div></div>
@@ -390,14 +383,61 @@
       return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
     }
 
-    function renderPeriodBanner(range, previousRange) {
-      const banner = document.getElementById("periodBanner");
-      if (!range || !range.startDate) { banner.style.display = "none"; return; }
-      document.getElementById("periodValue").textContent = `${formatDisplayDate(range.startDate)} – ${formatDisplayDate(range.endDate)}`;
-      document.getElementById("periodCompare").textContent = previousRange && previousRange.startDate
-        ? `Compared to ${formatDisplayDate(previousRange.startDate)} – ${formatDisplayDate(previousRange.endDate)}`
+    const MONTH_NAV_START = { year: 2025, month: 11 };
+
+    function currentSydneyMonth() {
+      const parts = new Intl.DateTimeFormat("en-AU", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit" }).formatToParts(new Date());
+      const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+      return { year: Number(values.year), month: Number(values.month) };
+    }
+
+    function monthKey({ year, month }) {
+      return `${year}-${String(month).padStart(2, "0")}`;
+    }
+
+    function listNavMonths() {
+      const months = [];
+      const now = currentSydneyMonth();
+      let { year, month } = MONTH_NAV_START;
+      while (year < now.year || (year === now.year && month <= now.month)) {
+        months.push({ year, month });
+        month += 1;
+        if (month > 12) { month = 1; year += 1; }
+      }
+      return months;
+    }
+
+    let selectedMonth = monthKey(currentSydneyMonth());
+
+    function renderMonthNav() {
+      const nav = document.getElementById("monthNav");
+      nav.innerHTML = "";
+      for (const item of listNavMonths()) {
+        const key = monthKey(item);
+        const pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = "month-pill" + (key === selectedMonth ? " active" : "");
+        pill.textContent = new Date(Date.UTC(item.year, item.month - 1, 1)).toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }) + " '" + String(item.year).slice(2);
+        pill.setAttribute("aria-pressed", key === selectedMonth ? "true" : "false");
+        pill.addEventListener("click", () => {
+          if (key === selectedMonth) return;
+          selectedMonth = key;
+          renderMonthNav();
+          loadDashboard();
+        });
+        nav.appendChild(pill);
+      }
+      const active = nav.querySelector(".month-pill.active");
+      if (active) active.scrollIntoView({ block: "nearest", inline: "center" });
+    }
+
+    function renderDateSummary(range, previousRange) {
+      const summary = document.getElementById("dateSummary");
+      if (!range || !range.startDate) { summary.textContent = ""; return; }
+      const compare = previousRange && previousRange.startDate
+        ? ` · vs ${formatDisplayDate(previousRange.startDate)} – ${formatDisplayDate(previousRange.endDate)}`
         : "";
-      banner.style.display = "flex";
+      summary.textContent = `${formatDisplayDate(range.startDate)} – ${formatDisplayDate(range.endDate)}${compare}`;
     }
 
     function renderKpiDelta(id, current, previous) {
@@ -433,11 +473,10 @@
       const status = document.getElementById("status");
       status.style.display = "block";
       status.textContent = "Loading dashboard data...";
-      const range = document.getElementById("dateRange").value;
-      document.getElementById("dateSummary").textContent = `Date Range: ${document.getElementById("dateRange").selectedOptions[0].text}`;
+      document.getElementById("dateSummary").textContent = "Loading...";
 
       try {
-        const res = await fetch(`/.netlify/functions/dashboard-data?range=${range}`);
+        const res = await fetch(`/.netlify/functions/dashboard-data?range=month&month=${selectedMonth}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Dashboard API failed");
 
@@ -452,7 +491,7 @@
         document.getElementById("kpiReferrals").textContent = number(data.kpis.referrals);
         document.getElementById("referralCount").textContent = number(data.kpis.referrals);
 
-        renderPeriodBanner(data.dateRange, data.kpisPrevious && data.kpisPrevious.range);
+        renderDateSummary(data.dateRange, data.kpisPrevious && data.kpisPrevious.range);
         const prev = data.kpisPrevious || {};
         renderKpiDelta("kpiCallsDelta", data.kpis.callsBooked, prev.callsBooked);
         renderKpiDelta("kpiVisitorsDelta", data.kpis.websiteVisitors, prev.websiteVisitors);
@@ -492,8 +531,8 @@
       }
     }
 
-    document.getElementById("dateRange").addEventListener("change", loadDashboard);
     document.getElementById("refreshBtn").addEventListener("click", loadDashboard);
+    renderMonthNav();
     document.querySelectorAll(".accordion-panel").forEach(panel => {
       panel.addEventListener("toggle", () => {
         if (panel.open) resizeVisibleCharts();
