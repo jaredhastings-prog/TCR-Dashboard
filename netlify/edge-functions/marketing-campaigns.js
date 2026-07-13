@@ -97,7 +97,7 @@ const EXECUTIVE_SUPPORT_BREAKDOWN_SCRIPT = `
 
 const CALENDLY_SOURCE_COLUMN_SCRIPT = `
     (() => {
-      const AWAITING_UTM_DATA = "Awaiting UTM Data";
+      const AWAITING_UTM_DATA = "Not tracked";
       const SOURCE_LABELS = {
         facebook: "Facebook",
         instagram: "Instagram",
@@ -170,7 +170,7 @@ const CALENDLY_SOURCE_COLUMN_SCRIPT = `
         const formatted = formatSource(value);
         return formatted
           ? escapeHtml(formatted)
-          : '<span class="integration-placeholder">' + AWAITING_UTM_DATA + '</span>';
+          : '<span class="utm-not-tracked">' + AWAITING_UTM_DATA + '</span>';
       }
 
       function campaignValue(call) {

@@ -40,7 +40,7 @@
     .month-pill { flex:0 0 auto; padding:8px 16px; border-radius:999px; font-size:14px; font-weight:600; color:#374151; background:transparent; border:1px solid transparent; cursor:pointer; font-family:inherit; transition:background .12s, color .12s; }
     .month-pill:hover { background:#f3f4f6; color:#111827; }
     .month-pill.active { background:#111827; color:#fff; border-color:#111827; font-weight:700; }
-    .utm-not-tracked { color:#9ca3af; font-style:italic; }
+    .utm-not-tracked { color:#9ca3af; font-style:italic; font-weight:600; }
     .section-title { font-size:22px; margin:32px 0 16px; }
     .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }
     .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
@@ -185,7 +185,7 @@
             <h3>Calendly Booking Detail</h3>
             <div class="table-scroll wide-table">
               <table>
-                <thead><tr><th>Name</th><th>Team Member</th><th>Category/Page</th><th>Sub-Page</th><th>Sub-sub page</th><th>Date Booked</th><th>UTM Source</th></tr></thead>
+                <thead><tr><th>Name</th><th>Team Member</th><th>Category/Page</th><th>Sub-Page</th><th>Sub-sub page</th><th>Date Booked</th></tr></thead>
                 <tbody id="callsTable"></tbody>
               </table>
             </div>
@@ -451,11 +451,6 @@
       el.style.display = "inline-block";
     }
 
-    function renderUtmSource(call) {
-      const source = String(call.utmSource || call.source || "").trim();
-      return source ? escapeHtml(source) : '<span class="utm-not-tracked">Not tracked</span>';
-    }
-
     function renderActiveDeals(activeDeals) {
       const rows = activeDeals || [];
       document.getElementById("activeDealsTable").innerHTML = rows.length ? rows.map(deal => `
@@ -502,7 +497,7 @@
         `).join("");
 
         document.getElementById("callsTable").innerHTML = (data.calls || []).map(c => `
-          <tr><td>${c.name || "Unknown"}</td><td>${c.teamMember || "Unknown"}</td><td>${c.category || ""}</td><td>${c.subCategory || ""}</td><td>${c.subSubCategory || ""}</td><td>${c.date || ""}</td><td>${renderUtmSource(c)}</td></tr>
+          <tr><td>${c.name || "Unknown"}</td><td>${c.teamMember || "Unknown"}</td><td>${c.category || ""}</td><td>${c.subCategory || ""}</td><td>${c.subSubCategory || ""}</td><td>${c.date || ""}</td></tr>
         `).join("");
 
         const callsByCategory = data.charts.callsByCategory || rowsBy(data.calls, "category");

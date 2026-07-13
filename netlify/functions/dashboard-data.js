@@ -973,20 +973,20 @@ function normalise(range, websitePages, calls, deals, purchases, activeDeals, wa
   };
 }
 
-function shiftDateString(dateString, days) {
-  const date = new Date(`${dateString}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-// Previous period of equal length, ending the day before the current range starts.
-// For "Month to Date" this compares against the same number of days of last month.
+// Full calendar month before the month the current range starts in.
+// Month-to-date is compared against the complete previous month's result.
 function getPreviousRange(range) {
-  const dayMs = 24 * 60 * 60 * 1000;
-  const lengthDays = Math.round((new Date(`${range.endDate}T00:00:00Z`) - new Date(`${range.startDate}T00:00:00Z`)) / dayMs) + 1;
-  const endDate = shiftDateString(range.startDate, -1);
-  const startDate = shiftDateString(endDate, -(lengthDays - 1));
-  return { key: "previousPeriod", startDate, endDate };
+  const [year, month] = range.startDate.split("-").map(Number);
+  const prev = new Date(Date.UTC(year, month - 2, 1));
+  const prevYear = prev.getUTCFullYear();
+  const prevMonth = prev.getUTCMonth() + 1;
+  const lastDay = new Date(Date.UTC(prevYear, prevMonth, 0)).getUTCDate();
+  const pad = n => String(n).padStart(2, "0");
+  return {
+    key: "previousMonth",
+    startDate: `${prevYear}-${pad(prevMonth)}-01`,
+    endDate: `${prevYear}-${pad(prevMonth)}-${pad(lastDay)}`,
+  };
 }
 
 async function fetchGa4VisitorTotal(range) {
