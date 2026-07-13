@@ -170,6 +170,18 @@ function getRange(params, now = new Date()) {
     startDate = dateString(previous.year, previous.month, 1);
     endDate = dateString(previous.year, previous.month, daysInMonth(previous.year, previous.month));
   }
+  // Specific calendar month, e.g. range=month&month=2026-03.
+  // The current month runs to today; past months cover the full month.
+  if (key === "month") {
+    const match = String(params.get("month") || "").match(/^(\d{4})-(\d{2})$/);
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      startDate = dateString(year, month, 1);
+      const monthEnd = dateString(year, month, daysInMonth(year, month));
+      endDate = monthEnd < todayDate ? monthEnd : todayDate;
+    }
+  }
   if (key === "qtd") {
     const quarterStartMonth = Math.floor((today.month - 1) / 3) * 3 + 1;
     startDate = dateString(today.year, quarterStartMonth, 1);
