@@ -46,7 +46,3 @@
   from = "/api/version"
   to = "/.netlify/functions/version"
   status = 200
-
-[[edge_functions]]
-  path = "/*"
-  function = "marketing-campaigns"

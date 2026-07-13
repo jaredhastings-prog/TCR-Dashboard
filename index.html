@@ -41,6 +41,18 @@
     .month-pill:hover { background:#f3f4f6; color:#111827; }
     .month-pill.active { background:#111827; color:#fff; border-color:#111827; font-weight:700; }
     .utm-not-tracked { color:#9ca3af; font-style:italic; font-weight:600; }
+    .count-breakdown { border-bottom:1px solid #e5e7eb; }
+    .count-breakdown:last-child { border-bottom:0; }
+    .count-breakdown > summary { list-style:none; cursor:pointer; }
+    .count-breakdown > summary::-webkit-details-marker { display:none; }
+    .count-breakdown > summary.count-row { border-bottom:0; }
+    .count-breakdown-hint { color:#6b7280; font-size:12px; font-weight:700; margin-left:8px; }
+    .count-breakdown-list { display:grid; gap:0; padding:2px 0 10px 16px; border-top:1px solid #f3f4f6; }
+    .count-breakdown-subrow { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:8px 0; border-bottom:1px solid #f3f4f6; }
+    .count-breakdown-subrow:last-child { border-bottom:0; }
+    .count-breakdown-sublabel { color:#4b5563; font-size:13px; font-weight:600; line-height:1.3; }
+    .count-breakdown-subvalue { color:#111827; font-size:16px; font-weight:800; }
+    @media (max-width:640px){ .count-breakdown-list{padding-left:10px;} .count-breakdown-subrow{align-items:flex-start;} }
     .section-title { font-size:22px; margin:32px 0 16px; }
     .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }
     .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
@@ -185,7 +197,7 @@
             <h3>Calendly Booking Detail</h3>
             <div class="table-scroll wide-table">
               <table>
-                <thead><tr><th>Name</th><th>Team Member</th><th>Category/Page</th><th>Sub-Page</th><th>Sub-sub page</th><th>Date Booked</th></tr></thead>
+                <thead><tr><th>Name</th><th>Team Member</th><th>Category/Page</th><th>Sub-Page</th><th>Sub-sub page</th><th>Date Booked</th><th>Source</th></tr></thead>
                 <tbody id="callsTable"></tbody>
               </table>
             </div>
@@ -202,7 +214,7 @@
               <div class="table-scroll">
                 <table>
                   <thead><tr><th>Sales Amount</th></tr></thead>
-                  <tbody><tr><td>$68,912</td></tr></tbody>
+                  <tbody><tr><td>$91,935.10</td></tr></tbody>
                 </table>
               </div>
             </div>
@@ -212,12 +224,27 @@
                 <table>
                   <thead><tr><th>Pathway</th><th>Sold</th></tr></thead>
                   <tbody>
-                    <tr><td>Self-Development</td><td>5</td></tr>
+                    <tr><td>Self-Development</td><td>6</td></tr>
                     <tr><td>Coach Training</td><td>1</td></tr>
-                    <tr><td>Executive Support</td><td>4</td></tr>
+                    <tr><td>Executive Support</td><td>3</td></tr>
                   </tbody>
                 </table>
               </div>
+            </div>
+          </section>
+        </div>
+      </details>
+
+      <details class="accordion-panel">
+        <summary><span class="accordion-title">Marketing Campaigns</span><span class="accordion-icon" aria-hidden="true"></span></summary>
+        <div class="accordion-content">
+          <section class="card">
+            <h3>Marketing Campaign Performance</h3>
+            <div class="table-scroll wide-table">
+              <table>
+                <thead><tr><th>Campaign</th><th>Source</th><th>Call Bookings</th></tr></thead>
+                <tbody id="marketingCampaignsTable"></tbody>
+              </table>
             </div>
           </section>
         </div>
@@ -317,11 +344,83 @@
       return Object.entries(map).map(([label, value]) => ({ label, value }));
     }
 
+    const EXECUTIVE_SUPPORT_CATEGORY = "Executive Support Pathway";
+    const BREAKDOWN_LIST_IDS = new Set(["callsByCategoryList", "callsByCategoryYtdList"]);
+
+    function renderExecutiveBreakdownRow(row, breakdownRows) {
+      const parentValue = breakdownRows.length
+        ? breakdownRows.reduce((total, breakdownRow) => total + Number(breakdownRow.value || 0), 0)
+        : Number(row.value || 0);
+      const subRows = breakdownRows.map(breakdownRow =>
+        `<div class="count-breakdown-subrow"><span class="count-breakdown-sublabel">${escapeHtml(breakdownRow.label || "Unknown")}</span><span class="count-breakdown-subvalue">${number(breakdownRow.value)}</span></div>`
+      ).join("");
+      return `<details class="count-breakdown"><summary class="count-row"><span class="count-label">${escapeHtml(row.label || "Unknown")}<span class="count-breakdown-hint">Breakdown</span></span><span class="count-value">${number(parentValue)}</span></summary><div class="count-breakdown-list">${subRows}</div></details>`;
+    }
+
     function renderCountList(id, rows) {
       const items = [...(rows || [])].sort((a, b) => Number(b.value || 0) - Number(a.value || 0) || String(a.label || "").localeCompare(String(b.label || "")));
-      document.getElementById(id).innerHTML = items.length ? items.map(row => `
-        <div class="count-row"><span class="count-label">${row.label || "Unknown"}</span><span class="count-value">${number(row.value)}</span></div>
-      `).join("") : `<div class="count-row"><span class="count-label">No calls</span><span class="count-value">0</span></div>`;
+      document.getElementById(id).innerHTML = items.length ? items.map(row => {
+        if (BREAKDOWN_LIST_IDS.has(id) && row.label === EXECUTIVE_SUPPORT_CATEGORY) {
+          return renderExecutiveBreakdownRow(row, Array.isArray(row.breakdown) ? row.breakdown : []);
+        }
+        return `<div class="count-row"><span class="count-label">${escapeHtml(row.label || "Unknown")}</span><span class="count-value">${number(row.value)}</span></div>`;
+      }).join("") : `<div class="count-row"><span class="count-label">No calls</span><span class="count-value">0</span></div>`;
+    }
+
+    const SOURCE_LABELS = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", email: "Email" };
+    const MARKETING_CAMPAIGN_NAMES = ["NLP Practitioner", "Executive Pathway", "RoomMates", "Self-Development Pathway", "Coach Training Pathway"];
+    const MARKETING_CAMPAIGN_SOURCES = ["Facebook", "Instagram", "LinkedIn", "Email"];
+
+    function normaliseSource(value) {
+      return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+    }
+
+    function rawSourceValue(call) {
+      if (!call) return "";
+      const utm = call.utm && typeof call.utm === "object" ? call.utm : {};
+      for (const value of [call.utmSource, call.utm_source, call.source, call.trafficSource, call.campaignSource, utm.source]) {
+        if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+      }
+      return "";
+    }
+
+    function formatSource(value) {
+      const raw = String(value || "").trim();
+      const normalised = normaliseSource(raw);
+      if (!normalised) return "";
+      return SOURCE_LABELS[normalised] || raw;
+    }
+
+    function renderCallSource(call) {
+      const formatted = formatSource(rawSourceValue(call));
+      return formatted ? escapeHtml(formatted) : '<span class="utm-not-tracked">Not tracked</span>';
+    }
+
+    function marketingCampaignValue(call) {
+      if (!call) return "";
+      const category = String(call.category || "").trim();
+      const subCategory = String(call.subCategory || "").trim();
+      for (const campaign of MARKETING_CAMPAIGN_NAMES) {
+        if (category === campaign || subCategory === campaign) return campaign;
+      }
+      return "";
+    }
+
+    function renderMarketingCampaigns(calls) {
+      const counts = new Map();
+      for (const call of calls || []) {
+        const campaign = marketingCampaignValue(call);
+        const source = SOURCE_LABELS[normaliseSource(rawSourceValue(call))];
+        if (!campaign || !source) continue;
+        const key = `${campaign}|${source}`;
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      document.getElementById("marketingCampaignsTable").innerHTML = MARKETING_CAMPAIGN_NAMES.map(campaign =>
+        MARKETING_CAMPAIGN_SOURCES.map((source, index) => {
+          const campaignCell = index === 0 ? `<td rowspan="4" style="font-weight:700;vertical-align:top;">${escapeHtml(campaign)}</td>` : "";
+          return `<tr>${campaignCell}<td>${source}</td><td>${number(counts.get(`${campaign}|${source}`) || 0)}</td></tr>`;
+        }).join("")
+      ).join("");
     }
 
     function renderTwoColumnTable(id, rows, emptyLabel) {
@@ -423,7 +522,7 @@
           if (key === selectedMonth) return;
           selectedMonth = key;
           renderMonthNav();
-          reloadDashboard();
+          loadDashboard();
         });
         nav.appendChild(pill);
       }
@@ -497,13 +596,14 @@
         `).join("");
 
         document.getElementById("callsTable").innerHTML = (data.calls || []).map(c => `
-          <tr><td>${c.name || "Unknown"}</td><td>${c.teamMember || "Unknown"}</td><td>${c.category || ""}</td><td>${c.subCategory || ""}</td><td>${c.subSubCategory || ""}</td><td>${c.date || ""}</td></tr>
+          <tr><td>${c.name || "Unknown"}</td><td>${c.teamMember || "Unknown"}</td><td>${c.category || ""}</td><td>${c.subCategory || ""}</td><td>${c.subSubCategory || ""}</td><td>${c.date || ""}</td><td>${renderCallSource(c)}</td></tr>
         `).join("");
 
         const callsByCategory = data.charts.callsByCategory || rowsBy(data.calls, "category");
         renderCountList("callsByCategoryList", callsByCategory);
         renderCountList("callsByCategoryYtdList", data.charts.callsByCategoryYtd || []);
         renderSalesCallPerformance(buildSalesCallPerformanceRows(data.calls || []));
+        renderMarketingCampaigns(data.calls || []);
         const dealsByStage = data.charts.dealsByStage || rowsBy(data.deals, "stage");
         renderTwoColumnTable("dealsByStageTable", dealsByStage, "No deals");
         const salesWonByTeam = rowsBy((data.deals || []).filter(deal => deal.stage === "Closed Won"), "owner");
@@ -526,12 +626,9 @@
       }
     }
 
-    // The marketing-campaigns edge function injects scripts immediately before the
-    // first indented loadDashboard call in this file. Use reloadDashboard() everywhere
-    // else so the boot call at the bottom stays the only injection point.
-    const reloadDashboard = () => { loadDashboard(); };
-    document.getElementById("refreshBtn").addEventListener("click", reloadDashboard);
+    document.getElementById("refreshBtn").addEventListener("click", loadDashboard);
     renderMonthNav();
+    renderMarketingCampaigns([]);
     document.querySelectorAll(".accordion-panel").forEach(panel => {
       panel.addEventListener("toggle", () => {
         if (panel.open) resizeVisibleCharts();
