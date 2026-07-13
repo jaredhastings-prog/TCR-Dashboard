@@ -423,7 +423,7 @@
           if (key === selectedMonth) return;
           selectedMonth = key;
           renderMonthNav();
-          loadDashboard();
+          reloadDashboard();
         });
         nav.appendChild(pill);
       }
@@ -526,7 +526,11 @@
       }
     }
 
-    document.getElementById("refreshBtn").addEventListener("click", loadDashboard);
+    // The marketing-campaigns edge function injects scripts immediately before the
+    // first indented loadDashboard call in this file. Use reloadDashboard() everywhere
+    // else so the boot call at the bottom stays the only injection point.
+    const reloadDashboard = () => { loadDashboard(); };
+    document.getElementById("refreshBtn").addEventListener("click", reloadDashboard);
     renderMonthNav();
     document.querySelectorAll(".accordion-panel").forEach(panel => {
       panel.addEventListener("toggle", () => {
