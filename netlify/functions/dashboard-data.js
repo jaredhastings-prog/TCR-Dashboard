@@ -973,6 +973,34 @@ function normalise(range, websitePages, calls, deals, purchases, activeDeals, wa
   };
 }
 
+function shiftDateString(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+// Previous period of equal length, ending the day before the current range starts.
+// For "Month to Date" this compares against the same number of days of last month.
+function getPreviousRange(range) {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const lengthDays = Math.round((new Date(`${range.endDate}T00:00:00Z`) - new Date(`${range.startDate}T00:00:00Z`)) / dayMs) + 1;
+  const endDate = shiftDateString(range.startDate, -1);
+  const startDate = shiftDateString(endDate, -(lengthDays - 1));
+  return { key: "previousPeriod", startDate, endDate };
+}
+
+async function fetchGa4VisitorTotal(range) {
+  const propertyId = normaliseGa4PropertyId(firstEnv("GA4_PROPERTY_ID", "GOOGLE_ANALYTICS_PROPERTY_ID", "GA_PROPERTY_ID"));
+  if (!propertyId) throw new Error("GA4_PROPERTY_ID not found");
+  const accessToken = await getGoogleAccessToken();
+  const report = await ga4RunReport(propertyId, accessToken, {
+    dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
+    metrics: [{ name: "activeUsers" }],
+  });
+  const row = (report.rows || [])[0];
+  return Number(row && row.metricValues && row.metricValues[0] ? row.metricValues[0].value : 0);
+}
+
 function getCalendlyYtdRange(range) {
   return { key: "ytdFromNov2025", startDate: "2025-11-01", endDate: range.endDate };
 }
@@ -984,11 +1012,15 @@ exports.handler = async (event) => {
   const includeGa4Debug = ["1", "true", "ga4"].includes(String(params.get("debug") || "").toLowerCase());
   const warnings = [];
 
-  const [calendlyYtdResult, websiteResult, deals, purchases] = await Promise.all([
+  const previousRange = getPreviousRange(range);
+
+  const [calendlyYtdResult, websiteResult, deals, purchases, previousVisitors, previousDeals] = await Promise.all([
     fetchCalendlyCalls(calendlyYtdRange, warnings).catch(e => { warnings.push(`Calendly YTD: ${e.message}`); return { calls: [], meta: { error: e.message } }; }),
     fetchGa4PageMetrics(range, { debug: includeGa4Debug }).catch(e => { warnings.push(`GA4: ${e.message}`); return { pages: [], debug: includeGa4Debug ? { error: e.message } : null }; }),
     fetchHubSpotDeals(range).catch(e => { warnings.push(`HubSpot: ${e.message}`); return []; }),
     fetchKajabiPurchases(range).catch(e => { warnings.push(`Kajabi: ${e.message}`); return []; }),
+    fetchGa4VisitorTotal(previousRange).catch(() => null),
+    fetchHubSpotDeals(previousRange).catch(() => null),
   ]);
 
   const websitePages = Array.isArray(websiteResult) ? websiteResult : (websiteResult.pages || []);
@@ -998,6 +1030,20 @@ exports.handler = async (event) => {
     return [];
   });
   const data = normalise(range, websitePages, calls, deals, purchases, activeDeals, warnings);
+
+  // Prior-period comparison. Calendly calls come from the same YTD fetch, so the
+  // comparison is only available once the previous period falls inside it.
+  const previousCalls = previousRange.startDate >= calendlyYtdRange.startDate
+    ? (calendlyYtdResult.calls || []).filter(call => isDateInRange(call.bookedDate || call.date, previousRange)).length
+    : null;
+  const previousClosedWon = Array.isArray(previousDeals) ? previousDeals.filter(d => d.stage === "Closed Won") : null;
+  data.kpisPrevious = {
+    range: previousRange,
+    callsBooked: previousCalls,
+    websiteVisitors: previousVisitors,
+    dealsWon: previousClosedWon ? previousClosedWon.length : null,
+    dealsWonValue: previousClosedWon ? previousClosedWon.reduce((t, d) => t + Number(d.amount || 0), 0) : null,
+  };
   data.callSales = await fetchHubSpotCallSalesMatches(calls).catch(e => {
     warnings.push(`HubSpot call-sales matching: ${e.message}`);
     return { totalCalls: calls.length, matchedCalls: 0, unmatchedCalls: calls.length, conversionRate: 0, matches: [] };

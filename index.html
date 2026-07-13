@@ -30,6 +30,15 @@
     .kpi-value { font-size:26px; font-weight:700; line-height:1.15; overflow-wrap:anywhere; }
     .kpi-subvalue { font-size:13px; font-weight:700; color:#374151; margin-top:4px; }
     .kpi-note { font-size:12px; color:#10b981; margin-top:8px; }
+    .kpi-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+    .kpi-delta { font-size:12px; font-weight:800; padding:2px 8px; border-radius:999px; white-space:nowrap; }
+    .kpi-delta.up { background:#ecfdf5; color:#047857; }
+    .kpi-delta.down { background:#fef2f2; color:#b91c1c; }
+    .period-banner { display:flex; flex-wrap:wrap; gap:8px 24px; align-items:baseline; background:#111827; color:#fff; border-radius:20px; padding:16px 20px; margin:0 0 24px; }
+    .period-banner .period-label { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#9ca3af; }
+    .period-banner .period-value { font-size:18px; font-weight:800; }
+    .period-banner .period-compare { font-size:13px; color:#d1d5db; margin-left:auto; }
+    .utm-not-tracked { color:#9ca3af; font-style:italic; }
     .section-title { font-size:22px; margin:32px 0 16px; }
     .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }
     .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
@@ -130,14 +139,20 @@
       <div id="dateSummary" class="date-summary">Loading...</div>
     </section>
 
+    <div id="periodBanner" class="period-banner" style="display:none;">
+      <span class="period-label">Reporting Period</span>
+      <span id="periodValue" class="period-value">—</span>
+      <span id="periodCompare" class="period-compare"></span>
+    </div>
+
     <section class="kpi-grid">
-      <div class="card"><div class="kpi-title">Calls Booked</div><div id="kpiCalls" class="kpi-value">—</div><div class="kpi-note">Mapped sales calls only</div></div>
-      <div class="card"><div class="kpi-title">Website Visitors</div><div id="kpiVisitors" class="kpi-value">—</div><div class="kpi-note">GA4 active users</div></div>
+      <div class="card"><div class="kpi-head"><div class="kpi-title">Calls Booked</div><span id="kpiCallsDelta" class="kpi-delta" style="display:none;"></span></div><div id="kpiCalls" class="kpi-value">—</div><div class="kpi-note">Mapped sales calls only</div></div>
+      <div class="card"><div class="kpi-head"><div class="kpi-title">Website Visitors</div><span id="kpiVisitorsDelta" class="kpi-delta" style="display:none;"></span></div><div id="kpiVisitors" class="kpi-value">—</div><div class="kpi-note">GA4 active users</div></div>
       <div class="card"><div class="kpi-title">Conversion Rate</div><div id="kpiConversion" class="kpi-value integration-placeholder">Awaiting Integration</div><div class="kpi-note">Bookings + purchases</div></div>
       <div class="card"><div class="kpi-title">NLP Brochure Downloads</div><div id="kpiBrochure" class="kpi-value integration-placeholder">Awaiting Integration</div><div class="kpi-note">Manual/mock until tracked</div></div>
       <div class="card"><div class="kpi-title">Pipeline Value</div><div id="kpiPipeline" class="kpi-value">—</div><div class="kpi-note">Active/open since Jan 1, 2025</div></div>
       <div class="card"><div class="kpi-title">Revenue (Kajabi)</div><div id="kpiRevenue" class="kpi-value integration-placeholder">Awaiting Integration</div><div class="kpi-note">Online purchases + RoomMates subscriptions</div></div>
-      <div class="card"><div class="kpi-title">Deals Won</div><div id="kpiDealsWon" class="kpi-value">—</div><div id="kpiDealsWonValue" class="kpi-subvalue">—</div><div class="kpi-note">HubSpot closed won</div></div>
+      <div class="card"><div class="kpi-head"><div class="kpi-title">Deals Won</div><span id="kpiDealsWonDelta" class="kpi-delta" style="display:none;"></span></div><div id="kpiDealsWon" class="kpi-value">—</div><div id="kpiDealsWonValue" class="kpi-subvalue">—</div><div class="kpi-note">HubSpot closed won</div></div>
       <div class="card"><div class="kpi-title">Referrals</div><div id="kpiReferrals" class="kpi-value">—</div><div class="kpi-note">Referral Factory pending</div></div>
     </section>
 
@@ -177,7 +192,7 @@
             <h3>Calendly Booking Detail</h3>
             <div class="table-scroll wide-table">
               <table>
-                <thead><tr><th>Name</th><th>Team Member</th><th>Category/Page</th><th>Sub-Page</th><th>Sub-sub page</th><th>Date Booked</th></tr></thead>
+                <thead><tr><th>Name</th><th>Team Member</th><th>Category/Page</th><th>Sub-Page</th><th>Sub-sub page</th><th>Date Booked</th><th>UTM Source</th></tr></thead>
                 <tbody id="callsTable"></tbody>
               </table>
             </div>
@@ -369,6 +384,38 @@
       return value ? String(value).slice(0, 10) : "Unknown";
     }
 
+    function formatDisplayDate(value) {
+      if (!value) return "";
+      const [y, m, d] = String(value).slice(0, 10).split("-").map(Number);
+      return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+    }
+
+    function renderPeriodBanner(range, previousRange) {
+      const banner = document.getElementById("periodBanner");
+      if (!range || !range.startDate) { banner.style.display = "none"; return; }
+      document.getElementById("periodValue").textContent = `${formatDisplayDate(range.startDate)} – ${formatDisplayDate(range.endDate)}`;
+      document.getElementById("periodCompare").textContent = previousRange && previousRange.startDate
+        ? `Compared to ${formatDisplayDate(previousRange.startDate)} – ${formatDisplayDate(previousRange.endDate)}`
+        : "";
+      banner.style.display = "flex";
+    }
+
+    function renderKpiDelta(id, current, previous) {
+      const el = document.getElementById(id);
+      if (previous === null || previous === undefined || !Number(previous)) { el.style.display = "none"; return; }
+      const pct = ((Number(current || 0) - Number(previous)) / Number(previous)) * 100;
+      const up = pct >= 0;
+      el.textContent = `${up ? "↑" : "↓"} ${Math.abs(pct).toFixed(1)}%`;
+      el.className = `kpi-delta ${up ? "up" : "down"}`;
+      el.title = `vs prior period: ${number(previous)}`;
+      el.style.display = "inline-block";
+    }
+
+    function renderUtmSource(call) {
+      const source = String(call.utmSource || call.source || "").trim();
+      return source ? escapeHtml(source) : '<span class="utm-not-tracked">Not tracked</span>';
+    }
+
     function renderActiveDeals(activeDeals) {
       const rows = activeDeals || [];
       document.getElementById("activeDealsTable").innerHTML = rows.length ? rows.map(deal => `
@@ -405,12 +452,18 @@
         document.getElementById("kpiReferrals").textContent = number(data.kpis.referrals);
         document.getElementById("referralCount").textContent = number(data.kpis.referrals);
 
+        renderPeriodBanner(data.dateRange, data.kpisPrevious && data.kpisPrevious.range);
+        const prev = data.kpisPrevious || {};
+        renderKpiDelta("kpiCallsDelta", data.kpis.callsBooked, prev.callsBooked);
+        renderKpiDelta("kpiVisitorsDelta", data.kpis.websiteVisitors, prev.websiteVisitors);
+        renderKpiDelta("kpiDealsWonDelta", data.kpis.dealsWon, prev.dealsWon);
+
         document.getElementById("websiteTable").innerHTML = (data.websitePages || []).map(p => `
           <tr><td>${p.page}</td><td>${number(p.views)}</td><td>${number(p.activeUsers)}</td><td>${Number(p.viewsPerActiveUser || 0).toFixed(2)}</td><td>${number(p.eventCount)}</td><td>${Number(p.bounceRate || 0).toFixed(1)}%</td><td>${number(p.outboundCalendlyClicks)}</td><td>${number(p.outboundKajabiClicks)}</td><td>${number(p.brochureDownloads)}</td></tr>
         `).join("");
 
         document.getElementById("callsTable").innerHTML = (data.calls || []).map(c => `
-          <tr><td>${c.name || "Unknown"}</td><td>${c.teamMember || "Unknown"}</td><td>${c.category || ""}</td><td>${c.subCategory || ""}</td><td>${c.subSubCategory || ""}</td><td>${c.date || ""}</td></tr>
+          <tr><td>${c.name || "Unknown"}</td><td>${c.teamMember || "Unknown"}</td><td>${c.category || ""}</td><td>${c.subCategory || ""}</td><td>${c.subSubCategory || ""}</td><td>${c.date || ""}</td><td>${renderUtmSource(c)}</td></tr>
         `).join("");
 
         const callsByCategory = data.charts.callsByCategory || rowsBy(data.calls, "category");
