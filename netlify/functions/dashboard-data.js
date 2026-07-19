@@ -1036,32 +1036,37 @@ exports.handler = async (event) => {
 
   const previousRange = getPreviousRange(range);
 
+  const startedAt = Date.now();
+  const timings = {};
+  const timed = (label, promise) => promise.finally(() => { timings[label] = Date.now() - startedAt; });
+
   // Everything that only depends on the Calendly result is chained off its
   // promise so it overlaps with the GA4/HubSpot/Kajabi fetches instead of
   // running after them.
-  const calendlyPromise = fetchCalendlyCalls(calendlyYtdRange, warnings).catch(e => { warnings.push(`Calendly YTD: ${e.message}`); return { calls: [], meta: { error: e.message } }; });
-  const activeDealsPromise = calendlyPromise.then(result => fetchHubSpotActiveDeals(result.calls || [])).catch(e => {
+  const calendlyPromise = timed("calendly", fetchCalendlyCalls(calendlyYtdRange, warnings).catch(e => { warnings.push(`Calendly YTD: ${e.message}`); return { calls: [], meta: { error: e.message } }; }));
+  const activeDealsPromise = timed("hubspotActiveDeals", calendlyPromise.then(result => fetchHubSpotActiveDeals(result.calls || [])).catch(e => {
     warnings.push(`HubSpot active deals: ${e.message}`);
     return [];
-  });
-  const callSalesPromise = calendlyPromise.then(result => {
+  }));
+  const callSalesPromise = timed("hubspotCallSales", calendlyPromise.then(result => {
     const rangeCalls = (result.calls || []).filter(call => isDateInRange(call.bookedDate || call.date, range));
     return fetchHubSpotCallSalesMatches(rangeCalls);
   }).catch(e => {
     warnings.push(`HubSpot call-sales matching: ${e.message}`);
     return { totalCalls: 0, matchedCalls: 0, unmatchedCalls: 0, conversionRate: 0, matches: [] };
-  });
+  }));
 
   const [calendlyYtdResult, websiteResult, deals, purchases, previousVisitors, previousDeals, activeDeals, callSales] = await Promise.all([
     calendlyPromise,
-    fetchGa4PageMetrics(range, { debug: includeGa4Debug }).catch(e => { warnings.push(`GA4: ${e.message}`); return { pages: [], debug: includeGa4Debug ? { error: e.message } : null }; }),
-    fetchHubSpotDeals(range).catch(e => { warnings.push(`HubSpot: ${e.message}`); return []; }),
-    fetchKajabiPurchases(range).catch(e => { warnings.push(`Kajabi: ${e.message}`); return []; }),
-    fetchGa4VisitorTotal(previousRange).catch(() => null),
-    fetchHubSpotDeals(previousRange).catch(() => null),
+    timed("ga4Pages", fetchGa4PageMetrics(range, { debug: includeGa4Debug }).catch(e => { warnings.push(`GA4: ${e.message}`); return { pages: [], debug: includeGa4Debug ? { error: e.message } : null }; })),
+    timed("hubspotDeals", fetchHubSpotDeals(range).catch(e => { warnings.push(`HubSpot: ${e.message}`); return []; })),
+    timed("kajabi", fetchKajabiPurchases(range).catch(e => { warnings.push(`Kajabi: ${e.message}`); return []; })),
+    timed("ga4PrevVisitors", fetchGa4VisitorTotal(previousRange).catch(() => null)),
+    timed("hubspotPrevDeals", fetchHubSpotDeals(previousRange).catch(() => null)),
     activeDealsPromise,
     callSalesPromise,
   ]);
+  timings.total = Date.now() - startedAt;
 
   const websitePages = Array.isArray(websiteResult) ? websiteResult : (websiteResult.pages || []);
   const calls = (calendlyYtdResult.calls || []).filter(call => isDateInRange(call.bookedDate || call.date, range));
@@ -1081,6 +1086,7 @@ exports.handler = async (event) => {
     dealsWon: previousClosedWon ? previousClosedWon.length : null,
     dealsWonValue: previousClosedWon ? previousClosedWon.reduce((t, d) => t + Number(d.amount || 0), 0) : null,
   };
+  data.meta.timings = timings;
   data.meta.calendly = { ...(calendlyYtdResult.meta || {}), includedAllowedEvents: calls.length, sourceRange: calendlyYtdRange, displayedRange: range };
   data.meta.calendlyYtd = calendlyYtdResult.meta || null;
   data.meta.calendlyYtdRange = calendlyYtdRange;
