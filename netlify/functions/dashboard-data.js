@@ -150,29 +150,43 @@ async function fetchCalendlyCalls(range, warnings = []) {
   const calls = [];
   const meta = { totalEventsSeen: events.length, includedAllowedEvents: 0, excludedUnmapped: 0, excludedOutsideBookingRange: 0, excludedDuplicateBookings: 0, scope, dateBasis: "invitee_created_at" };
 
+  // V12: only include the exact Calendly event names approved by TCR.
+  // Event memberships preserve the assigned host for round-robin bookings.
+  const mappedEvents = [];
   for (const event of events) {
     const eventSlug = slugFrom(event.name || "");
     const mapping = mapCalendlySlug(eventSlug);
-
-    // V12: only include the exact Calendly event names approved by TCR.
-    // Event memberships preserve the assigned host for round-robin bookings.
     if (!mapping) {
       meta.excludedUnmapped += 1;
       continue;
     }
+    mappedEvents.push({ event, eventSlug, mapping });
+  }
 
-    let inviteeName = "Unknown";
-    let bookingDate = dateFromIso(event.created_at);
-    let utm = { source: "", medium: "", content: "" };
-    try {
-      const uuid = event.uri.split("/").filter(Boolean).pop();
-      const invitees = await calendlyFetch(`https://api.calendly.com/scheduled_events/${uuid}/invitees?count=1`, token);
-      const invitee = invitees.collection && invitees.collection[0] ? invitees.collection[0] : null;
-      inviteeName = invitee && invitee.name ? invitee.name : "Unknown";
-      bookingDate = dateFromIso(invitee && invitee.created_at ? invitee.created_at : event.created_at);
-      utm = extractCalendlyUtms(invitee || {});
-    } catch {}
+  // Invitee lookups are one API call per event; running them serially made
+  // load time grow with total bookings. Fetch in parallel batches instead
+  // (Calendly allows well above this rate).
+  const INVITEE_CONCURRENCY = 10;
+  const processed = [];
+  for (let i = 0; i < mappedEvents.length; i += INVITEE_CONCURRENCY) {
+    const chunk = mappedEvents.slice(i, i + INVITEE_CONCURRENCY);
+    processed.push(...await Promise.all(chunk.map(async ({ event, eventSlug, mapping }) => {
+      let inviteeName = "Unknown";
+      let bookingDate = dateFromIso(event.created_at);
+      let utm = { source: "", medium: "", content: "" };
+      try {
+        const uuid = event.uri.split("/").filter(Boolean).pop();
+        const invitees = await calendlyFetch(`https://api.calendly.com/scheduled_events/${uuid}/invitees?count=1`, token);
+        const invitee = invitees.collection && invitees.collection[0] ? invitees.collection[0] : null;
+        inviteeName = invitee && invitee.name ? invitee.name : "Unknown";
+        bookingDate = dateFromIso(invitee && invitee.created_at ? invitee.created_at : event.created_at);
+        utm = extractCalendlyUtms(invitee || {});
+      } catch {}
+      return { event, eventSlug, mapping, inviteeName, bookingDate, utm };
+    })));
+  }
 
+  for (const { event, eventSlug, mapping, inviteeName, bookingDate, utm } of processed) {
     if (!isDateInRange(bookingDate, range)) {
       meta.excludedOutsideBookingRange += 1;
       continue;
@@ -480,23 +494,31 @@ async function fetchHubSpotCallSalesMatches(calls) {
     return { totalCalls, matchedCalls: 0, unmatchedCalls: totalCalls, conversionRate: 0, matches: [] };
   }
 
+  // One deal search per unique invitee name, in parallel batches — these
+  // were previously awaited one at a time.
+  const uniqueQueries = Array.from(new Set(
+    calls.map(call => String(call.name || "").trim()).filter(Boolean).map(q => q.toLowerCase())
+  ));
   const cache = new Map();
-  const matches = [];
-
-  for (const call of calls) {
-    const query = String(call.name || "").trim();
-    if (!query) continue;
-
-    if (!cache.has(query.toLowerCase())) {
+  const SEARCH_CONCURRENCY = 8;
+  for (let i = 0; i < uniqueQueries.length; i += SEARCH_CONCURRENCY) {
+    const chunk = uniqueQueries.slice(i, i + SEARCH_CONCURRENCY);
+    await Promise.all(chunk.map(async query => {
       const body = {
         query,
         properties: ["dealname", "amount", "dealstage", "createdate", "closedate"],
         limit: 10,
       };
-      cache.set(query.toLowerCase(), hsFetch("/crm/v3/objects/deals/search", token, { method: "POST", body: JSON.stringify(body) }));
-    }
+      const data = await hsFetch("/crm/v3/objects/deals/search", token, { method: "POST", body: JSON.stringify(body) }).catch(() => ({ results: [] }));
+      cache.set(query, data);
+    }));
+  }
 
-    const data = await cache.get(query.toLowerCase());
+  const matches = [];
+  for (const call of calls) {
+    const query = String(call.name || "").trim().toLowerCase();
+    const data = query ? cache.get(query) : null;
+    if (!data) continue;
     const matchedDeal = (data.results || []).find(deal => dealMatchesCallName(call.name, deal.properties && deal.properties.dealname));
     if (matchedDeal) {
       matches.push({
@@ -1014,22 +1036,42 @@ exports.handler = async (event) => {
 
   const previousRange = getPreviousRange(range);
 
-  const [calendlyYtdResult, websiteResult, deals, purchases, previousVisitors, previousDeals] = await Promise.all([
-    fetchCalendlyCalls(calendlyYtdRange, warnings).catch(e => { warnings.push(`Calendly YTD: ${e.message}`); return { calls: [], meta: { error: e.message } }; }),
-    fetchGa4PageMetrics(range, { debug: includeGa4Debug }).catch(e => { warnings.push(`GA4: ${e.message}`); return { pages: [], debug: includeGa4Debug ? { error: e.message } : null }; }),
-    fetchHubSpotDeals(range).catch(e => { warnings.push(`HubSpot: ${e.message}`); return []; }),
-    fetchKajabiPurchases(range).catch(e => { warnings.push(`Kajabi: ${e.message}`); return []; }),
-    fetchGa4VisitorTotal(previousRange).catch(() => null),
-    fetchHubSpotDeals(previousRange).catch(() => null),
+  const startedAt = Date.now();
+  const timings = {};
+  const timed = (label, promise) => promise.finally(() => { timings[label] = Date.now() - startedAt; });
+
+  // Everything that only depends on the Calendly result is chained off its
+  // promise so it overlaps with the GA4/HubSpot/Kajabi fetches instead of
+  // running after them.
+  const calendlyPromise = timed("calendly", fetchCalendlyCalls(calendlyYtdRange, warnings).catch(e => { warnings.push(`Calendly YTD: ${e.message}`); return { calls: [], meta: { error: e.message } }; }));
+  const activeDealsPromise = timed("hubspotActiveDeals", calendlyPromise.then(result => fetchHubSpotActiveDeals(result.calls || [])).catch(e => {
+    warnings.push(`HubSpot active deals: ${e.message}`);
+    return [];
+  }));
+  const callSalesPromise = timed("hubspotCallSales", calendlyPromise.then(result => {
+    const rangeCalls = (result.calls || []).filter(call => isDateInRange(call.bookedDate || call.date, range));
+    return fetchHubSpotCallSalesMatches(rangeCalls);
+  }).catch(e => {
+    warnings.push(`HubSpot call-sales matching: ${e.message}`);
+    return { totalCalls: 0, matchedCalls: 0, unmatchedCalls: 0, conversionRate: 0, matches: [] };
+  }));
+
+  const [calendlyYtdResult, websiteResult, deals, purchases, previousVisitors, previousDeals, activeDeals, callSales] = await Promise.all([
+    calendlyPromise,
+    timed("ga4Pages", fetchGa4PageMetrics(range, { debug: includeGa4Debug }).catch(e => { warnings.push(`GA4: ${e.message}`); return { pages: [], debug: includeGa4Debug ? { error: e.message } : null }; })),
+    timed("hubspotDeals", fetchHubSpotDeals(range).catch(e => { warnings.push(`HubSpot: ${e.message}`); return []; })),
+    timed("kajabi", fetchKajabiPurchases(range).catch(e => { warnings.push(`Kajabi: ${e.message}`); return []; })),
+    timed("ga4PrevVisitors", fetchGa4VisitorTotal(previousRange).catch(() => null)),
+    timed("hubspotPrevDeals", fetchHubSpotDeals(previousRange).catch(() => null)),
+    activeDealsPromise,
+    callSalesPromise,
   ]);
+  timings.total = Date.now() - startedAt;
 
   const websitePages = Array.isArray(websiteResult) ? websiteResult : (websiteResult.pages || []);
   const calls = (calendlyYtdResult.calls || []).filter(call => isDateInRange(call.bookedDate || call.date, range));
-  const activeDeals = await fetchHubSpotActiveDeals(calendlyYtdResult.calls || []).catch(e => {
-    warnings.push(`HubSpot active deals: ${e.message}`);
-    return [];
-  });
   const data = normalise(range, websitePages, calls, deals, purchases, activeDeals, warnings);
+  data.callSales = callSales;
 
   // Prior-period comparison. Calendly calls come from the same YTD fetch, so the
   // comparison is only available once the previous period falls inside it.
@@ -1044,10 +1086,7 @@ exports.handler = async (event) => {
     dealsWon: previousClosedWon ? previousClosedWon.length : null,
     dealsWonValue: previousClosedWon ? previousClosedWon.reduce((t, d) => t + Number(d.amount || 0), 0) : null,
   };
-  data.callSales = await fetchHubSpotCallSalesMatches(calls).catch(e => {
-    warnings.push(`HubSpot call-sales matching: ${e.message}`);
-    return { totalCalls: calls.length, matchedCalls: 0, unmatchedCalls: calls.length, conversionRate: 0, matches: [] };
-  });
+  data.meta.timings = timings;
   data.meta.calendly = { ...(calendlyYtdResult.meta || {}), includedAllowedEvents: calls.length, sourceRange: calendlyYtdRange, displayedRange: range };
   data.meta.calendlyYtd = calendlyYtdResult.meta || null;
   data.meta.calendlyYtdRange = calendlyYtdRange;
