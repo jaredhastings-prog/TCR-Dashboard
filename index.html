@@ -384,6 +384,26 @@
       return "";
     }
 
+    function rawMediumValue(call) {
+      if (!call) return "";
+      const utm = call.utm && typeof call.utm === "object" ? call.utm : {};
+      for (const value of [call.utmMedium, call.utm_medium, call.medium, utm.medium]) {
+        if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+      }
+      return "";
+    }
+
+    // Organic search shows up under several source/medium names (Google Business
+    // Profile "GMB", "google", medium "SEO"/"organic", etc.); collapse them all
+    // to a single "Organic Search" label.
+    const ORGANIC_SEARCH_SOURCES = new Set(["gmb", "google", "googlebusiness", "googlemybusiness", "googlebusinessprofile", "bing", "organic", "organicsearch"]);
+    const ORGANIC_SEARCH_MEDIUMS = new Set(["seo", "organic", "organicsearch"]);
+
+    function isOrganicSearch(call) {
+      return ORGANIC_SEARCH_SOURCES.has(normaliseSource(rawSourceValue(call)))
+        || ORGANIC_SEARCH_MEDIUMS.has(normaliseSource(rawMediumValue(call)));
+    }
+
     function formatSource(value) {
       const raw = String(value || "").trim();
       const normalised = normaliseSource(raw);
@@ -392,6 +412,7 @@
     }
 
     function renderCallSource(call) {
+      if (isOrganicSearch(call)) return escapeHtml("Organic Search");
       const formatted = formatSource(rawSourceValue(call));
       return formatted ? escapeHtml(formatted) : '<span class="utm-not-tracked">Not tracked</span>';
     }
