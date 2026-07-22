@@ -88,9 +88,8 @@ exports.handler = async (event) => {
   const p = payload.payload || {};
   const scheduledEvent = p.scheduled_event || {};
 
-  // Invitee name and tracking are at the top level of p
+  // Invitee name is at the top level of p
   const inviteeName = p.name || "Unknown";
-  const utmSource = p.tracking?.utm_source || null;
 
   // Event name is on the scheduled_event object
   const eventName = scheduledEvent.name || "";
@@ -131,12 +130,7 @@ exports.handler = async (event) => {
     dealstage: pipelineStage.stageId,
     ...(closeDate ? { closedate: closeDate } : {}),
     ...(ownerId ? { hubspot_owner_id: String(ownerId) } : {}),
-    description: [
-      `Calendly event: ${eventName}`,
-      `Category: ${mapped.category}${mapped.subCategory ? ` › ${mapped.subCategory}` : ""}`,
-      utmSource ? `UTM source: ${utmSource}` : null,
-      hostName ? `Calendly host: ${hostName}` : null,
-    ].filter(Boolean).join("\n"),
+    description: `${inviteeName}. Calendly event: ${mapped.category}`,
   };
 
   const createRes = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/deals`, {
