@@ -43,23 +43,28 @@ exports.handler = async (event) => {
     body: JSON.stringify(body, null, 2),
   });
 
-  // Diagnostic: report which app + scopes the LIVE Netlify token holds.
-  // Never returns the token itself.
+  // Diagnostic: identify what KIND of credential the live Netlify token is.
+  // Only a safe label + length are returned — never any secret characters.
   if (q.info === "true") {
-    const infoRes = await hs(`/oauth/v1/access-tokens/${encodeURIComponent(hubspotKey)}`, hubspotKey);
-    if (!infoRes.ok) {
-      return jsonOut(502, { status: "error", error: "Could not read token info", hubspotStatus: infoRes.status, detail: infoRes.json || infoRes.text });
+    const tok = hubspotKey || "";
+    let tokenKind = "unknown";
+    if (/^pat-/.test(tok)) tokenKind = "private-app-token (pat-)";
+    else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tok)) tokenKind = "legacy-api-key (uuid)";
+    else if (/^CO/.test(tok)) tokenKind = "oauth-access-token";
+
+    const out = { status: "token_info", tokenKind, tokenLength: tok.length };
+
+    // The oauth token-info endpoint only understands OAuth tokens.
+    if (tokenKind === "oauth-access-token") {
+      const infoRes = await hs(`/oauth/v1/access-tokens/${encodeURIComponent(tok)}`, tok);
+      if (infoRes.ok && infoRes.json) {
+        out.appId = infoRes.json.app_id;
+        out.hubId = infoRes.json.hub_id;
+        out.scopes = infoRes.json.scopes;
+        out.hasDealSchemaWrite = Array.isArray(infoRes.json.scopes) && infoRes.json.scopes.includes("crm.schemas.deals.write");
+      }
     }
-    const info = infoRes.json || {};
-    return jsonOut(200, {
-      status: "token_info",
-      appId: info.app_id,
-      hubId: info.hub_id,
-      user: info.user,
-      tokenType: info.token_type,
-      scopes: info.scopes,
-      hasDealSchemaWrite: Array.isArray(info.scopes) && info.scopes.includes("crm.schemas.deals.write"),
-    });
+    return jsonOut(200, out);
   }
 
   const label = (q.label || "Brochure Download").trim();
