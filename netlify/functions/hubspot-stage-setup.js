@@ -37,6 +37,31 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: "HUBSPOT_ACCESS_TOKEN not configured" };
   }
 
+  const jsonOut = (statusCode, body) => ({
+    statusCode,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body, null, 2),
+  });
+
+  // Diagnostic: report which app + scopes the LIVE Netlify token holds.
+  // Never returns the token itself.
+  if (q.info === "true") {
+    const infoRes = await hs(`/oauth/v1/access-tokens/${encodeURIComponent(hubspotKey)}`, hubspotKey);
+    if (!infoRes.ok) {
+      return jsonOut(502, { status: "error", error: "Could not read token info", hubspotStatus: infoRes.status, detail: infoRes.json || infoRes.text });
+    }
+    const info = infoRes.json || {};
+    return jsonOut(200, {
+      status: "token_info",
+      appId: info.app_id,
+      hubId: info.hub_id,
+      user: info.user,
+      tokenType: info.token_type,
+      scopes: info.scopes,
+      hasDealSchemaWrite: Array.isArray(info.scopes) && info.scopes.includes("crm.schemas.deals.write"),
+    });
+  }
+
   const label = (q.label || "Brochure Download").trim();
   const apply = q.apply === "true";
   const isClosed = q.closed === "true";
