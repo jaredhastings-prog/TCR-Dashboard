@@ -41,6 +41,7 @@
     .month-pill:hover { background:#f3f4f6; color:#111827; }
     .month-pill.active { background:#111827; color:#fff; border-color:#111827; font-weight:700; }
     .utm-not-tracked { color:#9ca3af; font-style:italic; font-weight:600; }
+    .overdue { color:#dc2626; font-weight:700; }
     .count-breakdown { border-bottom:1px solid #e5e7eb; }
     .count-breakdown:last-child { border-bottom:0; }
     .count-breakdown > summary { list-style:none; cursor:pointer; }
@@ -274,12 +275,30 @@
             </div>
           </section>
           <section class="card" style="margin-top:20px;">
-            <h3>Active Deals</h3>
+            <h3>Active Deals — Accountability</h3>
+            <p class="card-note">Grouped by owner. Overdue next steps are highlighted; deals with no next step set need attention.</p>
             <div class="table-scroll wide-table">
               <table>
-                <thead><tr><th>Deal owner</th><th>Deal description</th><th>Deal value</th><th>Expected close date</th><th>Discovery call source</th></tr></thead>
+                <thead><tr><th>Owner</th><th>Deal</th><th>Stage</th><th>Next step</th><th>Next step due</th><th>Value</th><th>Lead source</th></tr></thead>
                 <tbody id="activeDealsTable"></tbody>
               </table>
+            </div>
+          </section>
+          <section class="grid-2" style="margin-top:20px;">
+            <div class="card">
+              <h3>No Shows</h3>
+              <p class="card-note">Booked calls that didn't happen, by owner.</p>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Owner</th><th>Deal</th><th>Booked for</th></tr></thead>
+                  <tbody id="noShowsTable"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Lost — Outcome Reasons</h3>
+              <p class="card-note">Why deals were lost this period.</p>
+              <div id="lostByReasonList" class="count-list"></div>
             </div>
           </section>
         </div>
@@ -571,17 +590,58 @@
       el.style.display = "inline-block";
     }
 
+    function todayIsoDate() {
+      const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      return parts; // en-CA gives YYYY-MM-DD
+    }
+
+    function renderNextStepDue(dueDate) {
+      const due = String(dueDate || "").slice(0, 10);
+      if (!due) return '<span class="utm-not-tracked">Not set</span>';
+      const overdue = due < todayIsoDate();
+      const label = escapeHtml(formatDisplayDate(due));
+      return overdue ? `<span class="overdue">${label} · overdue</span>` : label;
+    }
+
+    function renderNextStep(step) {
+      const value = String(step || "").trim();
+      return value ? escapeHtml(value) : '<span class="utm-not-tracked">No next step set</span>';
+    }
+
     function renderActiveDeals(activeDeals) {
-      const rows = activeDeals || [];
+      const rows = [...(activeDeals || [])].sort((a, b) =>
+        String(a.dealOwner || "").localeCompare(String(b.dealOwner || "")) ||
+        String(a.nextStepDueDate || "9999").localeCompare(String(b.nextStepDueDate || "9999"))
+      );
       document.getElementById("activeDealsTable").innerHTML = rows.length ? rows.map(deal => `
         <tr>
           <td>${escapeHtml(deal.dealOwner || "Unknown")}</td>
           <td>${escapeHtml(deal.dealDescription || "Unknown")}</td>
+          <td>${escapeHtml(deal.stage || "—")}</td>
+          <td>${renderNextStep(deal.nextStep)}</td>
+          <td>${renderNextStepDue(deal.nextStepDueDate)}</td>
           <td>${currency(deal.dealValue || 0)}</td>
-          <td>${escapeHtml(formatDate(deal.expectedCloseDate))}</td>
-          <td>${escapeHtml(deal.discoveryCallSource || "Unknown")}</td>
+          <td>${escapeHtml(deal.leadSource || deal.discoveryCallSource || "—")}</td>
         </tr>
-      `).join("") : `<tr><td colspan="5">No active deals found</td></tr>`;
+      `).join("") : `<tr><td colspan="7">No active deals found</td></tr>`;
+    }
+
+    function renderNoShows(noShows) {
+      const rows = noShows || [];
+      document.getElementById("noShowsTable").innerHTML = rows.length ? rows.map(deal => `
+        <tr>
+          <td>${escapeHtml(deal.dealOwner || "Unknown")}</td>
+          <td>${escapeHtml(deal.dealDescription || "Unknown")}</td>
+          <td>${escapeHtml(formatDate(deal.expectedCloseDate))}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="3">No no-shows this period</td></tr>`;
+    }
+
+    function renderLostByReason(rows) {
+      const items = [...(rows || [])].sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
+      document.getElementById("lostByReasonList").innerHTML = items.length ? items.map(row =>
+        `<div class="count-row"><span class="count-label">${escapeHtml(row.label || "Not specified")}</span><span class="count-value">${number(row.value)}</span></div>`
+      ).join("") : `<div class="count-row"><span class="count-label">No lost deals this period</span><span class="count-value">0</span></div>`;
     }
 
     async function loadDashboard() {
@@ -630,6 +690,8 @@
         const salesWonByTeam = rowsBy((data.deals || []).filter(deal => deal.stage === "Closed Won"), "owner");
         renderTwoColumnTable("salesWonByTeamTable", salesWonByTeam, "No won sales");
         renderActiveDeals(data.activeDeals || []);
+        renderNoShows(data.noShows || []);
+        renderLostByReason(data.charts && data.charts.lostByReason ? data.charts.lostByReason : []);
         const revenueByProduct = data.charts.revenueByProduct || rowsBy(data.purchases, "product", "amount");
         renderChart("revenueByProduct", "doughnut", revenueByProduct.map(x => x.label), revenueByProduct.map(x => x.value), "Revenue");
         const brochureByPage = data.charts.brochureDownloadsByPage || [];
