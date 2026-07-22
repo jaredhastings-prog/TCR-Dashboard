@@ -232,16 +232,31 @@ async function fetchCalendlyCalls(range, warnings = []) {
   return { calls: uniqueCalls, meta };
 }
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 async function hsFetch(path, token, options = {}) {
-  const res = await fetch(`https://api.hubapi.com${path}`, {
-    ...options,
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(options.headers || {}) },
-  });
-  if (!res.ok) {
+  // HubSpot's search API has a strict per-second limit; retry on 429/5xx with
+  // backoff (honouring Retry-After) so a burst of parallel searches doesn't
+  // drop data.
+  const maxAttempts = 4;
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(`https://api.hubapi.com${path}`, {
+      ...options,
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(options.headers || {}) },
+    });
+    if (res.ok) return await res.json();
+
+    const retryable = res.status === 429 || res.status >= 500;
+    if (retryable && attempt < maxAttempts) {
+      const retryAfter = Number(res.headers.get("retry-after"));
+      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 500 * attempt;
+      await sleep(waitMs);
+      continue;
+    }
+
     const text = await res.text();
     throw new Error(`HubSpot API ${res.status}: ${text.slice(0, 500)}`);
   }
-  return await res.json();
 }
 
 async function hsSearchAll(path, token, body) {
@@ -525,7 +540,9 @@ async function fetchHubSpotCallSalesMatches(calls) {
     calls.map(call => String(call.name || "").trim()).filter(Boolean).map(q => q.toLowerCase())
   ));
   const cache = new Map();
-  const SEARCH_CONCURRENCY = 8;
+  // HubSpot search allows only a few requests per second per account; keep the
+  // batch small so parallel searches don't trip the secondly rate limit.
+  const SEARCH_CONCURRENCY = 3;
   for (let i = 0; i < uniqueQueries.length; i += SEARCH_CONCURRENCY) {
     const chunk = uniqueQueries.slice(i, i + SEARCH_CONCURRENCY);
     await Promise.all(chunk.map(async query => {
