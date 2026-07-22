@@ -254,28 +254,8 @@
       <details class="accordion-panel">
         <summary><span class="accordion-title">Sales Pipeline</span><span class="accordion-icon" aria-hidden="true"></span></summary>
         <div class="accordion-content">
-          <section class="grid-2">
-            <div class="card">
-              <h3>Deals by Stage</h3>
-              <div class="table-scroll">
-                <table>
-                  <thead><tr><th>Stage</th><th>Deals</th></tr></thead>
-                  <tbody id="dealsByStageTable"></tbody>
-                </table>
-              </div>
-            </div>
-            <div class="card">
-              <h3>Sales Won by Team Member</h3>
-              <div class="table-scroll">
-                <table>
-                  <thead><tr><th>Name</th><th>Count</th></tr></thead>
-                  <tbody id="salesWonByTeamTable"></tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-          <section class="card" style="margin-top:20px;">
-            <h3>Active Deals — Accountability</h3>
+          <section class="card">
+            <h3>Active Deals</h3>
             <p class="card-note">Grouped by owner. Overdue next steps are highlighted; deals with no next step set need attention.</p>
             <div class="table-scroll wide-table">
               <table>
@@ -461,13 +441,6 @@
           return `<tr>${campaignCell}<td>${source}</td><td>${number(counts.get(`${campaign}|${source}`) || 0)}</td></tr>`;
         }).join("")
       ).join("");
-    }
-
-    function renderTwoColumnTable(id, rows, emptyLabel) {
-      const items = [...(rows || [])].sort((a, b) => Number(b.value || 0) - Number(a.value || 0) || String(a.label || "").localeCompare(String(b.label || "")));
-      document.getElementById(id).innerHTML = items.length ? items.map(row => `
-        <tr><td>${escapeHtml(row.label || "Unknown")}</td><td>${number(row.value)}</td></tr>
-      `).join("") : `<tr><td>${escapeHtml(emptyLabel)}</td><td>0</td></tr>`;
     }
 
     function renderHubSpotPlaceholder(value = HUBSPOT_PLACEHOLDER) {
@@ -685,10 +658,6 @@
         renderCountList("callsByCategoryYtdList", data.charts.callsByCategoryYtd || []);
         renderSalesCallPerformance(buildSalesCallPerformanceRows(data.calls || []));
         renderMarketingCampaigns(data.calls || []);
-        const dealsByStage = data.charts.dealsByStage || rowsBy(data.deals, "stage");
-        renderTwoColumnTable("dealsByStageTable", dealsByStage, "No deals");
-        const salesWonByTeam = rowsBy((data.deals || []).filter(deal => deal.stage === "Closed Won"), "owner");
-        renderTwoColumnTable("salesWonByTeamTable", salesWonByTeam, "No won sales");
         renderActiveDeals(data.activeDeals || []);
         renderNoShows(data.noShows || []);
         renderLostByReason(data.charts && data.charts.lostByReason ? data.charts.lostByReason : []);
