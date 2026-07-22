@@ -262,11 +262,16 @@ async function hsSearchAll(path, token, body) {
 
 function classifyStage(label) {
   const l = String(label || "").toLowerCase();
-  if (l.includes("qualified")) return "Qualified Sales Lead";
-  if (l.includes("closed won")) return "Closed Won";
-  if (l.includes("closed lost")) return "Closed Lost";
+  // Won/Lost first so the new short stage names ("Won", "Lost") are caught
+  // as well as the legacy "Closed Won"/"Closed Lost".
+  if (l.includes("won")) return "Closed Won";
+  if (l.includes("lost")) return "Closed Lost";
+  if (l.includes("no show") || l.includes("no-show")) return "No Show";
   if (l.includes("void")) return "Voided";
-  return "Unknown";
+  if (l.includes("qualified")) return "Qualified Sales Lead";
+  // Otherwise preserve the real stage label (Call Booked, Following Up, …)
+  // so the Deals-by-Stage breakdown reflects the actual funnel.
+  return label ? String(label) : "Unknown";
 }
 
 async function fetchHubSpotDeals(range) {
@@ -284,6 +289,11 @@ async function fetchHubSpotDeals(range) {
   const ownerMap = {};
   for (const o of owners.results || []) ownerMap[o.id] = [o.firstName, o.lastName].filter(Boolean).join(" ") || o.email || o.id;
 
+  // Only request the outcome-reason property if it exists, so accounts that
+  // haven't created it yet don't get a 400 from the search API.
+  const dealPropertyNames = await fetchHubSpotPropertyNames("deals", token);
+  const outcomeReasonProps = keepExistingProperties(["outcome_reason"], dealPropertyNames);
+
   // V9: Report HubSpot deals by close date.
   // This keeps monthly reporting aligned to when deals are won/lost/voided.
   const body = {
@@ -294,7 +304,7 @@ async function fetchHubSpotDeals(range) {
         { propertyName: "closedate", operator: "LTE", value: `${range.endDate}T23:59:59.999Z` }
       ],
     }],
-    properties: ["dealname", "amount", "dealstage", "pipeline", "hubspot_owner_id", "closedate", "createdate", "product"],
+    properties: ["dealname", "amount", "dealstage", "pipeline", "hubspot_owner_id", "closedate", "createdate", "product", ...outcomeReasonProps],
     limit: 100,
   };
 
@@ -307,9 +317,11 @@ async function fetchHubSpotDeals(range) {
       id: d.id,
       dealName: p.dealname || "Untitled deal",
       stage: classifyStage(stageLabel),
+      stageLabel,
       amount: Number(p.amount || 0),
       owner: ownerMap[p.hubspot_owner_id] || "Unknown",
       product: normaliseProduct(p.product || p.dealname || ""),
+      outcomeReason: p.outcome_reason || "",
       closeDate: p.closedate || undefined,
       createDate: p.createdate || undefined,
     };
@@ -402,7 +414,9 @@ async function fetchHubSpotActiveDeals(calls = []) {
   if (!pipeline) return [];
 
   const openStageIds = [];
+  const stageLabelMap = {};
   for (const stage of pipeline.stages || []) {
+    stageLabelMap[stage.id] = stage.label;
     if (!stageIsClosed(stage)) openStageIds.push(stage.id);
   }
   if (!openStageIds.length) return [];
@@ -434,6 +448,12 @@ async function fetchHubSpotActiveDeals(calls = []) {
   const discoveredCalendlyProperties = dealPropertyNames
     ? Array.from(dealPropertyNames).filter(name => /calendly|discovery/i.test(name)).slice(0, 25)
     : [];
+  // Accountability properties — only requested if they exist in the account,
+  // so the dashboard keeps working before the HubSpot setup is done.
+  const accountabilityProps = keepExistingProperties(
+    ["next_step", "next_step_due_date", "lead_source"],
+    dealPropertyNames
+  );
   const properties = Array.from(new Set([
     "dealname",
     "amount",
@@ -445,6 +465,7 @@ async function fetchHubSpotActiveDeals(calls = []) {
     ...descriptionCandidates,
     ...sourceCandidates,
     ...discoveredCalendlyProperties,
+    ...accountabilityProps,
   ]));
 
   const results = await hsSearchAll("/crm/v3/objects/deals/search", token, {
@@ -482,6 +503,10 @@ async function fetchHubSpotActiveDeals(calls = []) {
       dealValue: activeDeal.dealValue,
       createdDate: activeDeal.createdDate,
       expectedCloseDate: activeDeal.expectedCloseDate,
+      stage: stageLabelMap[p.dealstage] || "",
+      nextStep: p.next_step || "",
+      nextStepDueDate: p.next_step_due_date || "",
+      leadSource: p.lead_source || "",
       discoveryCallSource: inferDiscoveryCallSource(activeDeal, calls, sourcePropertyNames),
     };
   });
@@ -1070,8 +1095,22 @@ exports.handler = async (event) => {
 
   const websitePages = Array.isArray(websiteResult) ? websiteResult : (websiteResult.pages || []);
   const calls = (calendlyYtdResult.calls || []).filter(call => isDateInRange(call.bookedDate || call.date, range));
-  const data = normalise(range, websitePages, calls, deals, purchases, activeDeals, warnings);
+
+  // No-shows are their own open stage in HubSpot; pull them out of the active
+  // funnel so they don't inflate pipeline value or the accountability table.
+  const isNoShowStage = deal => classifyStage(deal.stage) === "No Show";
+  const openDeals = (activeDeals || []).filter(deal => !isNoShowStage(deal));
+  const noShows = (activeDeals || []).filter(isNoShowStage);
+
+  const data = normalise(range, websitePages, calls, deals, purchases, openDeals, warnings);
   data.callSales = callSales;
+  data.noShows = noShows;
+
+  // Lost deals grouped by outcome reason (closed lost within the range).
+  data.charts.lostByReason = groupCount(
+    (deals || []).filter(d => d.stage === "Closed Lost"),
+    d => d.outcomeReason || "Not specified"
+  );
 
   // Prior-period comparison. Calendly calls come from the same YTD fetch, so the
   // comparison is only available once the previous period falls inside it.
