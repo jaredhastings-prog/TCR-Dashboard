@@ -1,7 +1,7 @@
 const { getStore } = require("@netlify/blobs");
 const { getRange, slugFrom, mapCalendlySlug, normaliseProduct, groupCount, groupSum, emptyData } = require("./_shared");
 
-const HUBSPOT_ACTIVE_DEALS_START_DATE = "2025-01-01";
+const HUBSPOT_ACTIVE_DEALS_START_DATE = "2025-11-01";
 const CALENDLY_LINK_URL_CONTAINS = [
   "calendly",
   "madeleine-thecoachingroom/",
