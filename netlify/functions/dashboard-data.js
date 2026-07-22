@@ -415,6 +415,22 @@ function inferDiscoveryCallSource(deal, calls, sourcePropertyNames) {
   return "No Calendly match";
 }
 
+// Build the dashboard "Deal" label as "<client>. Calendly event: <category>",
+// derived from the deal name ("<invitee> - <event name>") the Calendly webhook
+// sets. This normalises old deals whose stored description is still verbose.
+// Non-Calendly / unmapped deals fall back to the stored description or name.
+function buildDealDisplay(dealName, storedDescription) {
+  const name = String(dealName || "").trim();
+  const dashIndex = name.indexOf(" - ");
+  if (dashIndex > 0) {
+    const invitee = name.slice(0, dashIndex).trim();
+    const eventName = name.slice(dashIndex + 3).trim();
+    const mapping = mapCalendlySlug(slugFrom(eventName));
+    if (invitee && mapping) return `${invitee}. Calendly event: ${mapping.category}`;
+  }
+  return storedDescription || name || "Untitled deal";
+}
+
 async function fetchHubSpotActiveDeals(calls = []) {
   const token = process.env.HUBSPOT_ACCESS_TOKEN;
   if (!token) return [];
@@ -504,7 +520,7 @@ async function fetchHubSpotActiveDeals(calls = []) {
       id: deal.id,
       dealName: p.dealname || "Untitled deal",
       dealOwner: ownerMap[p.hubspot_owner_id] || "Unknown",
-      dealDescription: description ? description.value : (p.dealname || "Untitled deal"),
+      dealDescription: buildDealDisplay(p.dealname, description ? description.value : ""),
       dealValue: Number(p.amount || 0),
       createdDate: p.createdate || "",
       expectedCloseDate: p.closedate || "",
