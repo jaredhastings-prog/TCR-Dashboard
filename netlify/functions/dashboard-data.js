@@ -527,63 +527,6 @@ async function fetchHubSpotActiveDeals(calls = []) {
   });
 }
 
-async function fetchHubSpotCallSalesMatches(calls) {
-  const token = process.env.HUBSPOT_ACCESS_TOKEN;
-  const totalCalls = (calls || []).length;
-  if (!token || !totalCalls) {
-    return { totalCalls, matchedCalls: 0, unmatchedCalls: totalCalls, conversionRate: 0, matches: [] };
-  }
-
-  // One deal search per unique invitee name, in parallel batches — these
-  // were previously awaited one at a time.
-  const uniqueQueries = Array.from(new Set(
-    calls.map(call => String(call.name || "").trim()).filter(Boolean).map(q => q.toLowerCase())
-  ));
-  const cache = new Map();
-  // HubSpot search allows only a few requests per second per account; keep the
-  // batch small so parallel searches don't trip the secondly rate limit.
-  const SEARCH_CONCURRENCY = 3;
-  for (let i = 0; i < uniqueQueries.length; i += SEARCH_CONCURRENCY) {
-    const chunk = uniqueQueries.slice(i, i + SEARCH_CONCURRENCY);
-    await Promise.all(chunk.map(async query => {
-      const body = {
-        query,
-        properties: ["dealname", "amount", "dealstage", "createdate", "closedate"],
-        limit: 10,
-      };
-      const data = await hsFetch("/crm/v3/objects/deals/search", token, { method: "POST", body: JSON.stringify(body) }).catch(() => ({ results: [] }));
-      cache.set(query, data);
-    }));
-  }
-
-  const matches = [];
-  for (const call of calls) {
-    const query = String(call.name || "").trim().toLowerCase();
-    const data = query ? cache.get(query) : null;
-    if (!data) continue;
-    const matchedDeal = (data.results || []).find(deal => dealMatchesCallName(call.name, deal.properties && deal.properties.dealname));
-    if (matchedDeal) {
-      matches.push({
-        callId: call.id,
-        callName: call.name,
-        dealId: matchedDeal.id,
-        dealName: matchedDeal.properties && matchedDeal.properties.dealname ? matchedDeal.properties.dealname : "Untitled deal",
-        amount: Number(matchedDeal.properties && matchedDeal.properties.amount || 0),
-        dealStage: matchedDeal.properties && matchedDeal.properties.dealstage ? matchedDeal.properties.dealstage : undefined,
-      });
-    }
-  }
-
-  const matchedCalls = matches.length;
-  return {
-    totalCalls,
-    matchedCalls,
-    unmatchedCalls: Math.max(totalCalls - matchedCalls, 0),
-    conversionRate: totalCalls ? Number(((matchedCalls / totalCalls) * 100).toFixed(1)) : 0,
-    matches,
-  };
-}
-
 async function fetchGa4PageMetrics(_range, options = {}) {
   const propertyId = normaliseGa4PropertyId(firstEnv("GA4_PROPERTY_ID", "GOOGLE_ANALYTICS_PROPERTY_ID", "GA_PROPERTY_ID"));
   if (!propertyId) throw new Error("GA4_PROPERTY_ID not found");
@@ -1090,15 +1033,8 @@ exports.handler = async (event) => {
     warnings.push(`HubSpot active deals: ${e.message}`);
     return [];
   }));
-  const callSalesPromise = timed("hubspotCallSales", calendlyPromise.then(result => {
-    const rangeCalls = (result.calls || []).filter(call => isDateInRange(call.bookedDate || call.date, range));
-    return fetchHubSpotCallSalesMatches(rangeCalls);
-  }).catch(e => {
-    warnings.push(`HubSpot call-sales matching: ${e.message}`);
-    return { totalCalls: 0, matchedCalls: 0, unmatchedCalls: 0, conversionRate: 0, matches: [] };
-  }));
 
-  const [calendlyYtdResult, websiteResult, deals, purchases, previousVisitors, previousDeals, activeDeals, callSales] = await Promise.all([
+  const [calendlyYtdResult, websiteResult, deals, purchases, previousVisitors, previousDeals, activeDeals] = await Promise.all([
     calendlyPromise,
     timed("ga4Pages", fetchGa4PageMetrics(range, { debug: includeGa4Debug }).catch(e => { warnings.push(`GA4: ${e.message}`); return { pages: [], debug: includeGa4Debug ? { error: e.message } : null }; })),
     timed("hubspotDeals", fetchHubSpotDeals(range).catch(e => { warnings.push(`HubSpot: ${e.message}`); return []; })),
@@ -1106,7 +1042,6 @@ exports.handler = async (event) => {
     timed("ga4PrevVisitors", fetchGa4VisitorTotal(previousRange).catch(() => null)),
     timed("hubspotPrevDeals", fetchHubSpotDeals(previousRange).catch(() => null)),
     activeDealsPromise,
-    callSalesPromise,
   ]);
   timings.total = Date.now() - startedAt;
 
@@ -1120,7 +1055,6 @@ exports.handler = async (event) => {
   const noShows = (activeDeals || []).filter(isNoShowStage);
 
   const data = normalise(range, websitePages, calls, deals, purchases, openDeals, warnings);
-  data.callSales = callSales;
   data.noShows = noShows;
 
   // Lost deals grouped by outcome reason (closed lost within the range).
