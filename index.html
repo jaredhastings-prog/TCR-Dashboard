@@ -42,6 +42,17 @@
     .month-pill.active { background:#111827; color:#fff; border-color:#111827; font-weight:700; }
     .utm-not-tracked { color:#9ca3af; font-style:italic; font-weight:600; }
     .overdue { color:#dc2626; font-weight:700; }
+    .mc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-top:14px; }
+    .mc-tile { border:1px solid #e5e7eb; border-radius:16px; padding:16px 18px; background:#fff; }
+    .mc-tile-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .mc-tile-name { font-size:15px; font-weight:800; letter-spacing:-0.01em; color:#111827; line-height:1.2; }
+    .mc-tile-total { font-size:24px; font-weight:800; color:#111827; font-variant-numeric:tabular-nums; line-height:1; }
+    .mc-tile-total-label { font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#6b7280; margin-top:2px; }
+    .mc-sources { margin-top:12px; }
+    .mc-source-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-top:1px solid #f3f4f6; font-size:13px; color:#374151; }
+    .mc-source-val { font-weight:700; color:#111827; font-variant-numeric:tabular-nums; }
+    .mc-source-row.zero { color:#9ca3af; }
+    .mc-source-row.zero .mc-source-val { color:#9ca3af; font-weight:500; }
     .count-breakdown { border-bottom:1px solid #e5e7eb; }
     .count-breakdown:last-child { border-bottom:0; }
     .count-breakdown > summary { list-style:none; cursor:pointer; }
@@ -241,12 +252,8 @@
         <div class="accordion-content">
           <section class="card">
             <h3>Marketing Campaign Performance</h3>
-            <div class="table-scroll wide-table">
-              <table>
-                <thead><tr><th>Campaign</th><th>Source</th><th>Call Bookings</th></tr></thead>
-                <tbody id="marketingCampaignsTable"></tbody>
-              </table>
-            </div>
+            <p class="card-note">Call bookings by campaign and source.</p>
+            <div id="marketingCampaignsGrid" class="mc-grid"></div>
           </section>
         </div>
       </details>
@@ -368,7 +375,7 @@
 
     const SOURCE_LABELS = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", email: "Email" };
     const MARKETING_CAMPAIGN_NAMES = ["NLP Practitioner", "Executive Pathway", "RoomMates", "Self-Development Pathway", "Coach Training Pathway", "Figuring Out People"];
-    const MARKETING_CAMPAIGN_SOURCES = ["Facebook", "Instagram", "LinkedIn", "Email"];
+    const MARKETING_CAMPAIGN_SOURCES = ["Facebook", "Instagram", "LinkedIn", "Email", "Adwords", "Organic Search"];
 
     function normaliseSource(value) {
       return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -426,21 +433,41 @@
       return "";
     }
 
+    // Classify a call into one of the MARKETING_CAMPAIGN_SOURCES buckets, or "".
+    // Adwords is checked before Organic Search so paid Google traffic isn't
+    // miscounted as organic.
+    function campaignSourceLabel(call) {
+      const s = normaliseSource(rawSourceValue(call));
+      if (SOURCE_LABELS[s]) return SOURCE_LABELS[s];   // Facebook / Instagram / LinkedIn / Email
+      if (s === "adwords" || s === "googleads") return "Adwords";
+      if (isOrganicSearch(call)) return "Organic Search";
+      return "";
+    }
+
     function renderMarketingCampaigns(calls) {
       const counts = new Map();
       for (const call of calls || []) {
         const campaign = marketingCampaignValue(call);
-        const source = SOURCE_LABELS[normaliseSource(rawSourceValue(call))];
+        const source = campaignSourceLabel(call);
         if (!campaign || !source) continue;
         const key = `${campaign}|${source}`;
         counts.set(key, (counts.get(key) || 0) + 1);
       }
-      document.getElementById("marketingCampaignsTable").innerHTML = MARKETING_CAMPAIGN_NAMES.map(campaign =>
-        MARKETING_CAMPAIGN_SOURCES.map((source, index) => {
-          const campaignCell = index === 0 ? `<td rowspan="4" style="font-weight:700;vertical-align:top;">${escapeHtml(campaign)}</td>` : "";
-          return `<tr>${campaignCell}<td>${source}</td><td>${number(counts.get(`${campaign}|${source}`) || 0)}</td></tr>`;
-        }).join("")
-      ).join("");
+      document.getElementById("marketingCampaignsGrid").innerHTML = MARKETING_CAMPAIGN_NAMES.map(campaign => {
+        const total = MARKETING_CAMPAIGN_SOURCES.reduce((t, s) => t + (counts.get(`${campaign}|${s}`) || 0), 0);
+        const rows = MARKETING_CAMPAIGN_SOURCES.map(source => {
+          const v = counts.get(`${campaign}|${source}`) || 0;
+          return `<div class="mc-source-row${v === 0 ? " zero" : ""}"><span>${escapeHtml(source)}</span><span class="mc-source-val">${number(v)}</span></div>`;
+        }).join("");
+        return `<div class="mc-tile">
+          <div class="mc-tile-head">
+            <span class="mc-tile-name">${escapeHtml(campaign)}</span>
+            <span class="mc-tile-total">${number(total)}</span>
+          </div>
+          <div class="mc-tile-total-label">Call bookings</div>
+          <div class="mc-sources">${rows}</div>
+        </div>`;
+      }).join("");
     }
 
     function renderHubSpotPlaceholder(value = HUBSPOT_PLACEHOLDER) {
